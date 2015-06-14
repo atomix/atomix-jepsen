@@ -5,8 +5,8 @@
             [jepsen [core :as jepsen]
              [report :as report]]))
 
-(deftest counter
-  (let [test (jepsen/run! (counter-test))]
+(deftest cas
+  (let [test (jepsen/run! (cas-test))]
     (is (:valid? (:results test)))
-    (report/to "report/counter.txt"
-               (-> test :results :counter pprint))))
+    (report/to "report/cas.txt"
+               (-> test :results :cas pprint))))

@@ -121,22 +121,22 @@
                    (.build))]
     client))
 
-(defn setit!
-  "Sets a value for a reference"
-  [^AsyncReference reference value]
-  (-> (.set reference value) (.join)))
-
 (defn getit!
   "Gets a value from a reference"
   [^AsyncReference reference]
-  (-> (.get reference) (.join)))
+  (-> (.get reference) (.get)))
+
+(defn setit!
+  "Sets a value for a reference"
+  [^AsyncReference reference value]
+  (-> (.set reference value) (.get)))
 
 (defn cas!
   "Compares and sets a value for a reference"
   [^AsyncReference reference expected updated]
-  (-> (.compareAndSet reference expected updated) (.join)))
+  (-> (.compareAndSet reference expected updated) (.get)))
 
-(defrecord RegisterClient [client nodes]
+(defrecord CasRegisterClient [client resource nodes]
   client/Client
   (setup! [this test node]
     (info "connecting to copyat node" (name node))
@@ -150,24 +150,31 @@
 
   (invoke! [this test op]
     (case (:f op)
-      :read (assoc op :type :ok
-                      :value (:resource this))
+      :read (assoc op
+              :type :ok,
+              :value (getit! resource))
 
-      :add (do (setit! (:resource this) (:value op))
-               (assoc op :type :ok))))
+      :write (do
+               (setit! resource (:value op))
+               (assoc op :type :ok))
+
+      :cas   (let [[v v'] (:value op)
+                   ok? (cas! resource v v')]
+               (assoc op :type (if ok? :ok :fail)))))
 
   (teardown! [this test]
     (.close client)))
 
-(defn register-client
+(defn cas-register-client
   "A basic CAS register on top of a single key and bin."
   [nodes]
-  (RegisterClient. nil nodes))
+  (CasRegisterClient. nil nil nodes))
 
 ; Generators
 
-(defn r   [_ _] {:type :invoke, :f :read})
-(defn add [_ _] {:type :invoke, :f :add, :value 1})
+(defn read-gen   [_ _] {:type :invoke, :f :read})
+(defn write-gen   [_ _] {:type :invoke, :f :write, :value (rand-int 5)})
+(defn cas-gen [_ _] {:type :invoke, :f :cas, :value [(rand-int 5) (rand-int 5)]})
 
 (defn std-gen
   "Takes a client generator and wraps it in a typical schedule and nemesis causing failover."
@@ -199,20 +206,21 @@
            {:name     (str "copycat " name)
             :os       debian/os
             :db       (db "1.0" node-set)
+            :model   (model/cas-register)
+            :checker (checker/compose {:linear checker/linearizable
+                                       :latency (checker/latency-graph
+                                                  "report/")})
             :nemesis  (nemesis/partition-random-halves)
             :ssh      {:private-key-path "/home/vagrant/.ssh/id_rsa"}
             :node-set node-set})))
 
-(defn counter-test
-  "Returns a map of jepsen test configuration for testing a counter"
+(defn cas-test
+  "Returns a map of jepsen test configuration for testing cas"
   []
-  (let [base-test (copycat-test "counter")]
+  (let [base-test (copycat-test "cas")]
     (merge base-test
-           {:client    (register-client (:node-set base-test))
-            :generator (->> (repeat 100 add)
-                            (cons r)
+           {:client    (cas-register-client (:node-set base-test))
+            :generator (->> [read-gen write-gen cas-gen cas-gen cas-gen]
                             gen/mix
-                            (gen/delay 1/100)
-                            std-gen)
-            :checker   (checker/compose {:counter checker/counter
-                                         :latency (checker/latency-graph "report/")})})))
+                            (gen/delay 1)
+                            std-gen)})))
