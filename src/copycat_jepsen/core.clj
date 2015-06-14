@@ -146,8 +146,7 @@
                                 (.open)
                                 (.get)
                                 (.create "/register" AsyncReference)
-                                (.get)
-                                ))))
+                                (.get)))))
 
   (invoke! [this test op]
     (case (:f op)
