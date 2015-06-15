@@ -210,7 +210,7 @@
             :model   (model/cas-register)
             :checker   (checker/compose {:html timeline/html
                                          :linear checker/linearizable})
-            :nemesis  (nemesis/partition-random-halves)
+            :nemesis  (nemesis/noop)
             :ssh      {:private-key-path "/home/vagrant/.ssh/id_rsa"}
             :node-set node-set})))
 
