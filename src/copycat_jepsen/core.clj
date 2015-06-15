@@ -19,6 +19,7 @@
             [jepsen.control [net :as net]
              [util :as net/util]]
             [jepsen.os.debian :as debian]
+            [jepsen.checker.timeline :as timeline]
             [knossos.core :as knossos])
   (:import (net.kuujo.copycat CopycatClient)
            (net.kuujo.copycat.cluster NettyMembers NettyMember)
@@ -207,14 +208,13 @@
             :os       debian/os
             :db       (db "1.0" node-set)
             :model   (model/cas-register)
-            :checker (checker/compose {:linear checker/linearizable
-                                       :latency (checker/latency-graph
-                                                  "report/")})
+            :checker   (checker/compose {:html timeline/html
+                                         :linear checker/linearizable})
             :nemesis  (nemesis/partition-random-halves)
             :ssh      {:private-key-path "/home/vagrant/.ssh/id_rsa"}
             :node-set node-set})))
 
-(defn cas-test
+(defn cas-register-test
   "Returns a map of jepsen test configuration for testing cas"
   []
   (let [base-test (copycat-test "cas")]

@@ -5,8 +5,9 @@
             [jepsen [core :as jepsen]
              [report :as report]]))
 
-(deftest cas
-  (let [test (jepsen/run! (cas-test))]
+(deftest cas-register
+  (let [test (jepsen/run! (cas-register-test))]
     (is (:valid? (:results test)))
-    (report/to "report/cas.txt"
-               (-> test :results :cas pprint))))
+    (report/to "report/history.txt" (pprint (:history test)))
+    (report/to "report/linearizability.txt"
+               (-> test :results :linear report/linearizability))))
