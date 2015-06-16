@@ -177,28 +177,35 @@
 (defn write-gen   [_ _] {:type :invoke, :f :write, :value (rand-int 5)})
 (defn cas-gen [_ _] {:type :invoke, :f :cas, :value [(rand-int 5) (rand-int 5)]})
 
+(defn recover
+  "A generator which stops the nemesis and allows some time for recovery."
+  []
+  (gen/nemesis
+    (gen/once {:type :info, :f :stop})))
+
+(defn read-once
+  "A generator which reads exactly once."
+  []
+  (gen/clients
+    (gen/once {:type :invoke, :f :read})))
+
 (defn std-gen
   "Takes a client generator and wraps it in a typical schedule and nemesis causing failover."
   [gen]
   (gen/phases
     (->> gen
          (gen/nemesis
-           (gen/seq (cycle [(gen/sleep 2)
+           (gen/seq (cycle [(gen/sleep 5)
                             {:type :info :f :start}
                             (gen/sleep 10)
                             {:type :info :f :stop}])))
          (gen/time-limit 60))
-    ; Recover
-    (gen/nemesis
-      (gen/once {:type :info :f :stop}))
-    ; Wait for resumption of normal ops
-    (gen/clients
-      (->> gen
-           (gen/time-limit 5)))))
+    (recover)
+    (read-once)))
 
 ; Tests
 
-(defn copycat-test
+(defn- base-test
   "Returns a map of base test settings"
   [name]
   (let [base-test tests/noop-test
@@ -208,8 +215,7 @@
             :os       debian/os
             :db       (db "1.0" node-set)
             :model   (model/cas-register)
-            :checker   (checker/compose {:html timeline/html
-                                         :linear checker/linearizable})
+            :checker   (checker/compose {:linear checker/linearizable})
             :nemesis  (nemesis/partition-random-halves)
             :ssh      {:private-key-path "/home/vagrant/.ssh/id_rsa"}
             :node-set node-set})))
@@ -217,10 +223,9 @@
 (defn cas-register-test
   "Returns a map of jepsen test configuration for testing cas"
   []
-  (let [base-test (copycat-test "cas")]
+  (let [base-test (base-test "cas")]
     (merge base-test
            {:client    (cas-register-client (:node-set base-test))
-            :generator (->> [read-gen write-gen cas-gen cas-gen cas-gen]
-                            gen/mix
-                            (gen/delay 1)
-                            std-gen)})))
+            :generator  (->> gen/cas
+                             (gen/delay 1/4)
+                             std-gen)})))
