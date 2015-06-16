@@ -181,13 +181,17 @@
   "A generator which stops the nemesis and allows some time for recovery."
   []
   (gen/nemesis
-    (gen/once {:type :info, :f :stop})))
+    (gen/concat
+      (gen/log* "Recovering after Nemesis")
+      (gen/once {:type :info, :f :stop}))))
 
 (defn read-once
   "A generator which reads exactly once."
   []
   (gen/clients
-    (gen/once {:type :invoke, :f :read})))
+    (gen/concat
+      (gen/log* "Reading after Nemesis")
+      (gen/once {:type :invoke, :f :read}))))
 
 (defn std-gen
   "Takes a client generator and wraps it in a typical schedule and nemesis causing failover."
@@ -196,8 +200,10 @@
     (->> gen
          (gen/nemesis
            (gen/seq (cycle [(gen/sleep 5)
+                            (gen/log* "Starting Nemesis")
                             {:type :info :f :start}
                             (gen/sleep 10)
+                            (gen/log* "Stopping Nemesis")
                             {:type :info :f :stop}])))
          (gen/time-limit 60))
     (recover)
@@ -227,5 +233,5 @@
     (merge base-test
            {:client    (cas-register-client (:node-set base-test))
             :generator  (->> gen/cas
-                             (gen/delay 1/4)
+                             (gen/delay 1/2)
                              std-gen)})))

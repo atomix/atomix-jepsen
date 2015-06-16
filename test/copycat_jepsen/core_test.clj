@@ -6,8 +6,13 @@
              [report :as report]]))
 
 (deftest cas-register
-  (let [test (jepsen/run! (cas-register-test))]
-    (is (:valid? (:results test)))
-    (report/to "report/history.txt" (pprint (:history test)))
-    (report/to "report/linearizability.txt"
-               (-> test :results :linear report/linearizability))))
+  (loop []
+    (let [test (jepsen/run! (cas-register-test))
+          valid (:valid? (:results test))]
+      (if-not valid
+        (do
+          (is valid)
+          (report/to "report/history.txt" (pprint (:history test)))
+          (report/to "report/linearizability.txt"
+                     (-> test :results :linear report/linearizability)))
+        (recur)))))
