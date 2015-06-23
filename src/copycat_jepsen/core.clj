@@ -66,8 +66,9 @@
 
 (defn start!
   "Starts copycat."
-  [node test nodes]
-  (let [other-nodes (apply merge
+  [node test]
+  (let [nodes (:node-set test)
+        other-nodes (apply merge
                            (map #(assoc {} % (disj nodes %))
                                 nodes))
         local-node-arg (str (node-id node) ":5555")
@@ -80,8 +81,7 @@
     (c/su
       (c/cd "/opt/copycat/examples/server"
             (c/exec :java :-jar jarfile local-node-arg other-node-args
-                    (c/lit "2>> /dev/null >> /var/log/copycat.log & echo $!"))))
-    ))
+                    (c/lit "2>> /dev/null >> /var/log/copycat.log & echo $!"))))))
 
 (defn stop!
   "Stops copycat."
@@ -92,12 +92,12 @@
 
 (defn db
   "Copycat database"
-  [version nodes]
+  [version]
   (reify db/DB
     (setup! [_ test node]
       (doto node
         (install! version)
-        (start! test nodes)))
+        (start! test)))
 
     (teardown! [_ test node]
       (stop! node))))
@@ -157,11 +157,13 @@
 
       :write (do
                (setit! resource (:value op))
-               (assoc op :type :ok))
+               (assoc op
+                 :type :ok))
 
       :cas   (let [[v v'] (:value op)
                    ok? (cas! resource v v')]
-               (assoc op :type (if ok? :ok :fail)))))
+               (assoc op
+                 :type (if ok? :ok :fail)))))
 
   (teardown! [this test]
     (.close client)))
@@ -172,10 +174,6 @@
   (CasRegisterClient. nil nil nodes))
 
 ; Generators
-
-(defn read-gen   [_ _] {:type :invoke, :f :read})
-(defn write-gen   [_ _] {:type :invoke, :f :write, :value (rand-int 5)})
-(defn cas-gen [_ _] {:type :invoke, :f :cas, :value [(rand-int 5) (rand-int 5)]})
 
 (defn recover
   "A generator which stops the nemesis and allows some time for recovery."
@@ -211,6 +209,33 @@
 
 ; Tests
 
+(defn mostly-small-nonempty-subset
+  "Returns a subset of the given collection, with a logarithmically decreasing
+  probability of selecting more elements. Always selects at least one element.
+      (->> #(mostly-small-nonempty-subset [1 2 3 4 5])
+           repeatedly
+           (map count)
+           (take 10000)
+           frequencies
+           sort)
+      ; => ([1 3824] [2 2340] [3 1595] [4 1266] [5 975])"
+  [xs]
+  (-> xs
+      count
+      inc
+      Math/log
+      rand
+      Math/exp
+      long
+      (take (shuffle xs))))
+
+(def crash-nemesis
+  "A nemesis that crashes a random subset of nodes."
+  (nemesis/node-start-stopper
+    mostly-small-nonempty-subset
+    (fn start [test node] (c/su (c/exec :killall :-9 :java)) [:killed node])
+    (fn stop  [test node] (start! node test) [:restarted node])))
+
 (defn- base-test
   "Returns a map of base test settings"
   [name]
@@ -219,19 +244,35 @@
     (merge base-test
            {:name     (str "copycat " name)
             :os       debian/os
-            :db       (db "1.0" node-set)
-            :model   (model/cas-register)
-            :checker   (checker/compose {:linear checker/linearizable})
-            :nemesis  (nemesis/partition-random-halves)
+            :db       (db "1.0")
+            :checker  (checker/compose {:linear checker/linearizable})
             :ssh      {:private-key-path "/home/vagrant/.ssh/id_rsa"}
             :node-set node-set})))
 
-(defn cas-register-test
+(defn- cas-register-test
   "Returns a map of jepsen test configuration for testing cas"
-  []
-  (let [base-test (base-test "cas")]
+  [name opts]
+  (let [base-test (base-test (str "cas register " name))]
     (merge base-test
            {:client    (cas-register-client (:node-set base-test))
-            :generator  (->> gen/cas
-                             (gen/delay 1/2)
-                             std-gen)})))
+            :model     (model/cas-register)
+            :generator (->> gen/cas
+                            (gen/delay 1/2)
+                            std-gen)}
+           opts)))
+
+(def bridge-test
+  (cas-register-test "bridge"
+                     {:nemesis (nemesis/partitioner (comp nemesis/bridge shuffle))}))
+
+(def halves-test
+  (cas-register-test "halves"
+                     {:nemesis (nemesis/partition-random-halves)}))
+
+(def isolate-node-test
+  (cas-register-test "isolate node"
+                     {:nemesis (nemesis/partition-random-node)}))
+
+(def crash-subset-test
+  (cas-register-test "crash"
+                     {:nemesis crash-nemesis}))
