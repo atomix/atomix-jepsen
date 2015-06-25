@@ -18,33 +18,31 @@
 ;  ;(recur)
 ;  )
 
-(defn date-tag
-  "Date tagging for the report directory"
+(defn current-time
   []
   (->> (java.util.Date.)
-       (.format (java.text.SimpleDateFormat. "yyyy-MM-dd-HH-mm-ss"))))
-
-(def timestamp (date-tag))
+       (.format (java.text.SimpleDateFormat. "yyyy-MM-dd HH:mm:ss"))))
 
 (defn- run-cas-register-test!
   "Runs a cas register test"
-  [test ts]
-  (let [test (jepsen/run! test)]
+  [test]
+  (let [test (jepsen/run! test)
+        timestamp (current-time)]
     (or (is (:valid? (:results test)))
         (println (:error (:results test))))
-    (report/to (str "report-" ts "/" (:name test) "/history.edn")
+    (report/to (str "report-" timestamp "/" (:name test) "-history.edn")
                (pprint (:history test)))
-    (report/to (str "report-" ts "/" (:name test) "/linearizability.txt")
+    (report/to (str "report/" timestamp "/" (:name test) "-linearizability.txt")
                (-> test :results :linear report/linearizability))))
 
 (deftest cas-test-bridge
-  (run-cas-register-test! bridge-test timestamp))
+  (run-cas-register-test! cas-bridge-test))
 
 (deftest cas-test-isolate-node
-  (run-cas-register-test! isolate-node-test timestamp))
+  (run-cas-register-test! cas-isolate-node-test))
 
 (deftest cas-test-halves
-  (run-cas-register-test! halves-test timestamp))
+  (run-cas-register-test! cas-halves-test))
 
 (deftest cas-test-crash-subset
-  (run-cas-register-test! crash-subset-test timestamp))
+  (run-cas-register-test! cas-crash-subset-test))

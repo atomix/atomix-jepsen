@@ -4,6 +4,7 @@
             [clojure.java.io :as io]
             [clojure.tools.logging :refer [debug info warn]]
             [copycat-jepsen.util :as cutil]
+            [figaro.core :as figaro]
             [jepsen [core      :as jepsen]
              [db        :as db]
              [util      :as util :refer [meh timeout]]
@@ -19,11 +20,7 @@
             [jepsen.control [net :as net]
              [util :as net/util]]
             [jepsen.os.debian :as debian]
-            [jepsen.checker.timeline :as timeline]
-            [knossos.core :as knossos])
-  (:import (net.kuujo.copycat CopycatClient)
-           (net.kuujo.copycat.cluster NettyMembers NettyMember)
-           (net.kuujo.copycat.atomic AsyncReference)))
+            [jepsen.checker.timeline :as timeline]))
 
 (defn- node-id [node]
   (Integer/parseInt (subs (name node) 1)))
@@ -104,69 +101,34 @@
 
 ; Test clients
 
-(defn connect
-  "Returns a Copycat for the given node. Blocks until the client is available."
-  [node nodes]
-  (let [other-nodes (disj nodes node)
-        cluster-members (map #(-> (NettyMember/builder)
-                                  (.withId (node-id %))
-                                  (.withHost (name %))
-                                  (.withPort 5555)
-                                  .build)
-                             other-nodes)
-        cluster (-> (NettyMembers/builder)
-                    (.withMembers cluster-members)
-                    (.build))
-        client (-> (CopycatClient/builder)
-                   (.withMembers cluster)
-                   (.build))]
-    client))
-
-(defn getit!
-  "Gets a value from a reference"
-  [^AsyncReference reference]
-  (-> (.get reference) (.get)))
-
-(defn setit!
-  "Sets a value for a reference"
-  [^AsyncReference reference value]
-  (-> (.set reference value) (.get)))
-
-(defn cas!
-  "Compares and sets a value for a reference"
-  [^AsyncReference reference expected updated]
-  (-> (.compareAndSet reference expected updated) (.get)))
-
-(defrecord CasRegisterClient [client resource nodes]
+(defrecord CasRegisterClient [client register nodes]
   client/Client
   (setup! [this test node]
     (info "connecting to copyat node" (name node))
-    (let [client (connect node nodes)]
+    (let [node-set (map #(hash-map :id (node-id %)
+                                   :host (name %)
+                                   :port 5555)
+                        nodes)
+          client (figaro/client node-set)]
       (assoc this :client client)
-      (assoc this :resource (-> client
-                                (.open)
-                                (.get)
-                                (.create "/register" AsyncReference)
-                                (.get)))))
+      (assoc this :register (figaro/dist-atom client "register"))))
 
   (invoke! [this test op]
     (case (:f op)
       :read (assoc op
               :type :ok,
-              :value (getit! resource))
+              :value (figaro/get! register))
 
       :write (do
-               (setit! resource (:value op))
-               (assoc op
-                 :type :ok))
+               (figaro/set! register (:value op))
+               (assoc op :type :ok))
 
       :cas   (let [[v v'] (:value op)
-                   ok? (cas! resource v v')]
-               (assoc op
-                 :type (if ok? :ok :fail)))))
+                   ok? (figaro/cas! register v v')]
+               (assoc op :type (if ok? :ok :fail)))))
 
   (teardown! [this test]
-    (.close client)))
+    (figaro/close client)))
 
 (defn cas-register-client
   "A basic CAS register on top of a single key and bin."
@@ -207,34 +169,16 @@
     (recover)
     (read-once)))
 
-; Tests
-
-(defn mostly-small-nonempty-subset
-  "Returns a subset of the given collection, with a logarithmically decreasing
-  probability of selecting more elements. Always selects at least one element.
-      (->> #(mostly-small-nonempty-subset [1 2 3 4 5])
-           repeatedly
-           (map count)
-           (take 10000)
-           frequencies
-           sort)
-      ; => ([1 3824] [2 2340] [3 1595] [4 1266] [5 975])"
-  [xs]
-  (-> xs
-      count
-      inc
-      Math/log
-      rand
-      Math/exp
-      long
-      (take (shuffle xs))))
+; Nemesis
 
 (def crash-nemesis
   "A nemesis that crashes a random subset of nodes."
   (nemesis/node-start-stopper
-    mostly-small-nonempty-subset
-    (fn start [test node] (c/su (c/exec :killall :-9 :java)) [:killed node])
+    cutil/mostly-small-nonempty-subset
+    (fn start [test node] (stop! node) [:killed node])
     (fn stop  [test node] (start! node test) [:restarted node])))
+
+; Tests
 
 (defn- base-test
   "Returns a map of base test settings"
@@ -261,18 +205,18 @@
                             std-gen)}
            opts)))
 
-(def bridge-test
+(def cas-bridge-test
   (cas-register-test "bridge"
                      {:nemesis (nemesis/partitioner (comp nemesis/bridge shuffle))}))
 
-(def halves-test
+(def cas-halves-test
   (cas-register-test "halves"
                      {:nemesis (nemesis/partition-random-halves)}))
 
-(def isolate-node-test
+(def cas-isolate-node-test
   (cas-register-test "isolate node"
                      {:nemesis (nemesis/partition-random-node)}))
 
-(def crash-subset-test
+(def cas-crash-subset-test
   (cas-register-test "crash"
                      {:nemesis crash-nemesis}))
