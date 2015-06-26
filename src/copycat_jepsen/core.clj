@@ -31,7 +31,7 @@
   "Installs copycat on the given node."
   [node version]
 
-  ; Install JDK 8
+  ; Setup Jepsen users not using copycat-jepsen's Docker container
   (when (nil? (debian/installed-version "oracle-java8-installer"))
     (info node "installing JDK")
     (c/su
@@ -40,10 +40,7 @@
       (c/exec :echo (c/lit "oracle-java8-installer shared/accepted-oracle-license-v1-1 select true | sudo /usr/bin/debconf-set-selections"))
       (c/exec :apt-key (c/lit "adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys EEA14886")))
     (debian/update!)
-    (debian/install ["oracle-java8-installer" "oracle-java8-set-default"])
-
-    ; Install other dependencies
-    (debian/install ["git" "maven"]))
+    (debian/install ["oracle-java8-installer" "oracle-java8-set-default" "git" "maven"]))
 
   ; Install copycat
   ;(c/su
@@ -190,7 +187,6 @@
             :os       debian/os
             :db       (db "1.0")
             :checker  (checker/compose {:linear checker/linearizable})
-            :ssh      {:private-key-path "/home/vagrant/.ssh/id_rsa"}
             :node-set node-set})))
 
 (defn- cas-register-test

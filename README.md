@@ -6,31 +6,29 @@
 
 copycat-jepsen is a suite of [Jepsen][jepsen] based tests for [Copycat][copycat] including:
 
-* Linearizable counter
+* Linearizable read
+* Linearizable write
 * Linearizable CAS
 
 ## Setup
 
-* Check out the [Jepsen setup instructions](https://github.com/aphyr/jepsen/tree/master/jepsen) or use [jepsen-vagrant](https://github.com/abailly/jepsen-vagrant) to quickly setup a Jepsen environment.
-* Make sure that Jepsen and Copycat are both installed in your local maven repo.
-
-#### Extra Setup
-
-To cut down on container disk usage, you can link your host's maven repo into your containers:
+To run copycat-jepsen you'll need to setup a Jepsen test environment. If you don't already have one, you can create one using Docker. First, clone copycat-jepsen:
 
 ```
-for i in 1 2 3 4 5; do ln -s ~/.m2/repository /var/lib/lxc/n${i}/rootfs/root/.m2; done
+git clone https://github.com/jhalterman/copycat-jepsen.git
 ```
 
-If your jepsen host is a VM, you can also share your VM host's maven repo with it. For Vagrant you can add the config:
+Then create a jepsen Docker container, sharing your `copycat-jepsen` directory into the container:
 
 ```
-config.vm.synced_folder "~/.m2/repository", "/home/vagrant/.m2/repository"
+cd copycat-jepsen
+docker run --privileged --name jepsen -it -v $(pwd):/copycat-jepsen jhalterman/jepsen
 ```
+This jepsen container will include 5 [docker-in-docker](https://github.com/jpetazzo/dind) sub-containers in which Copycat will be deployed.
 
 ## Usage
 
-From your jepsen host's `copycat-jepsen` directory:
+To run the copycat-jepsen tests, from your `copycat-jepsen` directory, run:
 
 ```
 lein test
@@ -38,9 +36,11 @@ lein test
 
 ## Notes
 
-If you need to kill the copycat processes, from your jepsen host:
+To cut down on test setup time and disk usage, you can share your local `~/.m2` directory with your Jepsen environment by including the following in your `docker run` command:
 
-`for i in 1 2 3 4 5; do sudo lxc-attach -n n${i} -- pkill java; done`
+```
+-v $HOME/.m2:/root/.m2
+```
 
 ## License
 
