@@ -31,7 +31,7 @@
   "Installs copycat on the given node."
   [node version]
 
-  ; Setup Jepsen users not using copycat-jepsen's Docker container
+  ; Setup for non copycat-jepsen Docker environments
   (when (nil? (debian/installed-version "oracle-java8-installer"))
     (info node "installing JDK")
     (c/su
@@ -43,20 +43,19 @@
     (debian/install ["oracle-java8-installer" "oracle-java8-set-default" "git" "maven"]))
 
   ; Install copycat
-  ;(c/su
-  ;  (info node "fetching copycat")
-  ;  (if-not (cutil/dir-exists "/opt/copycat")
-  ;    (c/cd "/opt"
-  ;          (c/exec :git :clone "https://github.com/kuujo/copycat.git"))
-  ;    (c/cd "/opt/copycat"
-  ;          (c/exec :git :pull)))
-  ;  (info node "building copycat")
-  ;  (c/cd "/opt/copycat"
-  ;        ;(c/exec :git :checkout "0.6.0")
-  ;        (c/exec :mvn :clean :install "-DskipTests=true"))
-  ;  (c/cd "/opt/copycat/examples"
-  ;        (c/exec :mvn :clean :package)))
-  )
+  (c/su
+    (info node "fetching copycat")
+    (if-not (cutil/dir-exists "/opt/copycat")
+      (c/cd "/opt"
+            (c/exec :git :clone "https://github.com/kuujo/copycat.git"))
+      (c/cd "/opt/copycat"
+            (c/exec :git :pull)))
+    (info node "building copycat")
+    (c/cd "/opt/copycat"
+          (c/exec :git :checkout)
+          (c/exec :mvn :clean :install "-DskipTests=true"))
+    (c/cd "/opt/copycat/examples"
+          (c/exec :mvn :clean :package))))
 
 (defn start!
   "Starts copycat."
