@@ -10,6 +10,13 @@ copycat-jepsen is a suite of [Jepsen][jepsen] based tests for [Copycat][copycat]
 * Linearizable write
 * Linearizable CAS
 
+The tests are run against various nemeses including:
+
+* Partition with random halves
+* Partition a random node
+* Partition in half with a bridge node
+* Crash a random minority of nodes
+
 ## Setup
 
 To run copycat-jepsen you'll need to setup a Jepsen test environment. If you don't already have one, you can create one using Docker. First, clone copycat-jepsen:
@@ -36,10 +43,20 @@ lein test
 
 ## Notes
 
+#### Shared Repository
+
 To cut down on test setup time and disk usage, you can share your local `~/.m2` directory with your Jepsen environment by including the following in your `docker run` command:
 
 ```
 -v $HOME/.m2:/root/.m2
+```
+
+#### Skip Build
+
+To run Copycat from your local `.m2` repo instead of pulling and building it from Github, run as:
+
+```
+DEV=true lein test
 ```
 
 ## License

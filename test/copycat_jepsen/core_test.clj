@@ -30,7 +30,7 @@
         timestamp (current-time)]
     (or (is (:valid? (:results test)))
         (println (:error (:results test))))
-    (report/to (str "report-" timestamp "/" (:name test) "-history.edn")
+    (report/to (str "report/" timestamp "/" (:name test) "-history.edn")
                (pprint (:history test)))
     (report/to (str "report/" timestamp "/" (:name test) "-linearizability.txt")
                (-> test :results :linear report/linearizability))))

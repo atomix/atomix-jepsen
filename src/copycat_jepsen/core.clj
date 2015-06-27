@@ -1,26 +1,26 @@
 (ns copycat-jepsen.core
-  (:require [clojure [pprint :refer :all]
-             [string :as str]]
-            [clojure.java.io :as io]
-            [clojure.tools.logging :refer [debug info warn]]
-            [copycat-jepsen.util :as cutil]
-            [figaro.core :as figaro]
-            [jepsen [core      :as jepsen]
-             [db        :as db]
-             [util      :as util :refer [meh timeout]]
-             [control   :as c :refer [|]]
-             [client    :as client]
-             [checker   :as checker]
-             [model     :as model]
-             [generator :as gen]
-             [nemesis   :as nemesis]
-             [store     :as store]
-             [report    :as report]
-             [tests     :as tests]]
-            [jepsen.control [net :as net]
-             [util :as net/util]]
-            [jepsen.os.debian :as debian]
-            [jepsen.checker.timeline :as timeline]))
+    (:require [clojure [pprint :refer :all]
+               [string :as str]]
+              [clojure.java.io :as io]
+              [clojure.tools.logging :refer [debug info warn]]
+              [copycat-jepsen.util :as cutil]
+              [figaro.core :as figaro]
+              [jepsen [core :as jepsen]
+               [db :as db]
+               [util :as util :refer [meh timeout]]
+               [control :as c :refer [|]]
+               [client :as client]
+               [checker :as checker]
+               [model :as model]
+               [generator :as gen]
+               [nemesis :as nemesis]
+               [store :as store]
+               [report :as report]
+               [tests :as tests]]
+              [jepsen.control [net :as net]
+               [util :as net/util]]
+              [jepsen.os.debian :as debian]
+              [jepsen.checker.timeline :as timeline]))
 
 (defn- node-id [node]
   (Integer/parseInt (subs (name node) 1)))
@@ -43,32 +43,32 @@
     (debian/install ["oracle-java8-installer" "oracle-java8-set-default" "git" "maven"]))
 
   ; Install copycat
-  (c/su
-    (info node "fetching copycat")
-    (if-not (cutil/dir-exists "/opt/copycat")
-      (c/cd "/opt"
-            (c/exec :git :clone "https://github.com/kuujo/copycat.git"))
+  (when (not (get (System/getenv) "DEV"))
+    (c/su
+      (info node "fetching copycat")
+      (if-not (cutil/dir-exists "/opt/copycat")
+        (c/cd "/opt"
+              (c/exec :git :clone "https://github.com/kuujo/copycat.git"))
+        (c/cd "/opt/copycat"
+              (c/exec :git :pull)))
+      (info node "building copycat")
       (c/cd "/opt/copycat"
-            (c/exec :git :pull)))
-    (info node "building copycat")
-    (c/cd "/opt/copycat"
-          (c/exec :git :checkout)
-          (c/exec :mvn :clean :install "-DskipTests=true"))
-    (c/cd "/opt/copycat/examples"
-          (c/exec :mvn :clean :package))))
+            (c/exec :git :checkout)
+            (c/exec :mvn :clean :install "-DskipTests=true"))
+      (c/cd "/opt/copycat/examples"
+            (c/exec :mvn :clean :install)))))
 
 (defn start!
   "Starts copycat."
   [node test]
-  (let [nodes (:node-set test)
-        other-nodes (apply merge
-                           (map #(assoc {} % (disj nodes %))
-                                nodes))
-        local-node-arg (str (node-id node) ":5555")
+  (let [nodes           (:node-set test)
+        other-nodes     (apply merge
+                               (map #(assoc {} % (disj nodes %))
+                                    nodes))
+        local-node-arg  (str (node-id node) ":5555")
         other-node-args (map #(str (node-id %) ":" (name %) ":5555")
                              (node other-nodes))
-        ; temp haxxxx
-        jarfile "/root/.m2/repository/net/kuujo/copycat/copycat-server-example/0.6.0-SNAPSHOT/copycat-server-example-0.6.0-SNAPSHOT-shaded.jar"]
+        jarfile         "/root/.m2/repository/net/kuujo/copycat/copycat-server-example/0.6.0-SNAPSHOT/copycat-server-example-0.6.0-SNAPSHOT-shaded.jar"]
     (info node "starting copycat")
     (meh (c/exec :rm (c/lit "/var/log/copycat.log")))
     (c/su
@@ -87,12 +87,12 @@
   "Copycat database"
   [version]
   (reify db/DB
-    (setup! [_ test node]
+    (setup! [this test node]
       (doto node
         (install! version)
         (start! test)))
 
-    (teardown! [_ test node]
+    (teardown! [this test node]
       (stop! node))))
 
 ; Test clients
@@ -105,7 +105,7 @@
                                    :host (name %)
                                    :port 5555)
                         nodes)
-          client (figaro/client node-set)]
+          client   (figaro/client node-set)]
       (assoc this :client client)
       (assoc this :register (figaro/dist-atom client "register"))))
 
@@ -119,9 +119,9 @@
                (figaro/set! register (:value op))
                (assoc op :type :ok))
 
-      :cas   (let [[v v'] (:value op)
-                   ok? (figaro/cas! register v v')]
-               (assoc op :type (if ok? :ok :fail)))))
+      :cas (let [[v v'] (:value op)
+                 ok? (figaro/cas! register v v')]
+             (assoc op :type (if ok? :ok :fail)))))
 
   (teardown! [this test]
     (figaro/close client)))
@@ -172,7 +172,7 @@
   (nemesis/node-start-stopper
     cutil/mostly-small-nonempty-subset
     (fn start [test node] (stop! node) [:killed node])
-    (fn stop  [test node] (start! node test) [:restarted node])))
+    (fn stop [test node] (start! node test) [:restarted node])))
 
 ; Tests
 
@@ -180,7 +180,7 @@
   "Returns a map of base test settings"
   [name]
   (let [base-test tests/noop-test
-        node-set (into #{} (:nodes base-test))]
+        node-set  (into #{} (:nodes base-test))]
     (merge base-test
            {:name     (str "copycat " name)
             :os       debian/os
