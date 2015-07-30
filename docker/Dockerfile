@@ -11,7 +11,7 @@ ENV LEIN_ROOT true
 RUN apt-get -y -q install software-properties-common 
 RUN add-apt-repository ppa:openjdk-r/ppa
 RUN apt-get -y -q update
-RUN apt-get install -qqy openjdk-8-jdk libjna-java git gnuplot wget
+RUN apt-get install -qqy openjdk-8-jdk libjna-java git gnuplot wget maven
 
 # Install Leiningen
 RUN cd / && wget https://raw.githubusercontent.com/technomancy/leiningen/stable/bin/lein && mv /lein /usr/bin 

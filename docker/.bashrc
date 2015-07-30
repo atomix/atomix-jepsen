@@ -10,11 +10,11 @@ then
     cat /root/jepsennode.tar.gz | docker import - jepsennode
 
     # start the 5 nodes
-    docker run --privileged -v /root/.m2:/root/.m2 -d --name n1 -e ROOT_PASS="root" -e AUTHORIZED_KEYS="`cat ~/.ssh/id_rsa.pub`" jepsennode /run.sh
-    docker run --privileged -v /root/.m2:/root/.m2 -d --name n2 -e ROOT_PASS="root" -e AUTHORIZED_KEYS="`cat ~/.ssh/id_rsa.pub`" jepsennode /run.sh
-    docker run --privileged -v /root/.m2:/root/.m2 -d --name n3 -e ROOT_PASS="root" -e AUTHORIZED_KEYS="`cat ~/.ssh/id_rsa.pub`" jepsennode /run.sh
-    docker run --privileged -v /root/.m2:/root/.m2 -d --name n4 -e ROOT_PASS="root" -e AUTHORIZED_KEYS="`cat ~/.ssh/id_rsa.pub`" jepsennode /run.sh
-    docker run --privileged -v /root/.m2:/root/.m2 -d --name n5 -e ROOT_PASS="root" -e AUTHORIZED_KEYS="`cat ~/.ssh/id_rsa.pub`" jepsennode /run.sh
+    docker run --privileged -v /root/.m2:/root/.m2 -d --name n1 -h n1 -e ROOT_PASS="root" -e AUTHORIZED_KEYS="`cat ~/.ssh/id_rsa.pub`" jepsennode /run.sh
+    docker run --privileged -v /root/.m2:/root/.m2 -d --name n2 -h n2 -e ROOT_PASS="root" -e AUTHORIZED_KEYS="`cat ~/.ssh/id_rsa.pub`" jepsennode /run.sh
+    docker run --privileged -v /root/.m2:/root/.m2 -d --name n3 -h n3 -e ROOT_PASS="root" -e AUTHORIZED_KEYS="`cat ~/.ssh/id_rsa.pub`" jepsennode /run.sh
+    docker run --privileged -v /root/.m2:/root/.m2 -d --name n4 -h n4 -e ROOT_PASS="root" -e AUTHORIZED_KEYS="`cat ~/.ssh/id_rsa.pub`" jepsennode /run.sh
+    docker run --privileged -v /root/.m2:/root/.m2 -d --name n5 -h n5 -e ROOT_PASS="root" -e AUTHORIZED_KEYS="`cat ~/.ssh/id_rsa.pub`" jepsennode /run.sh
 
   else
 
