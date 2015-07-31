@@ -9,9 +9,10 @@ ENV LEIN_ROOT true
 
 # Install Jepsen dependencies
 RUN apt-get -y -q install software-properties-common 
-RUN add-apt-repository ppa:openjdk-r/ppa
+RUN add-apt-repository ppa:webupd8team/java -y
 RUN apt-get -y -q update
-RUN apt-get install -qqy openjdk-8-jdk libjna-java git gnuplot wget maven
+RUN echo "oracle-java8-installer shared/accepted-oracle-license-v1-1 select true" | sudo debconf-set-selections
+RUN apt-get install -qqy oracle-java8-installer oracle-java8-set-default libjna-java git gnuplot wget maven
 
 # Install Leiningen
 RUN cd / && wget https://raw.githubusercontent.com/technomancy/leiningen/stable/bin/lein && mv /lein /usr/bin 
