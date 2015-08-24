@@ -20,7 +20,8 @@
               [jepsen.control [net :as net]
                [util :as net/util]]
               [jepsen.os.debian :as debian]
-              [jepsen.checker.timeline :as timeline]))
+              [jepsen.checker.timeline :as timeline])
+  (:import (java.util.concurrent ExecutionException)))
 
 (defn- node-id [node]
   (Integer/parseInt (subs (name node) 1)))
@@ -70,7 +71,7 @@
                              (node other-nodes))
         jarfile         "/root/.m2/repository/net/kuujo/copycat/copycat-server-example/0.6.0-SNAPSHOT/copycat-server-example-0.6.0-SNAPSHOT-shaded.jar"]
     (info node "starting copycat")
-    (meh (c/exec :rm (c/lit "/var/log/copycat.log")))
+    (meh (c/exec :truncate :--size 0 "/var/log/copycat.log"))
     (c/su
       (c/cd "/opt/copycat/examples/server"
             (c/exec :java :-jar jarfile local-node-arg other-node-args
@@ -104,16 +105,22 @@
     (let [node-set (map #(hash-map :id (node-id %)
                                    :host (name %)
                                    :port 5555)
-                        nodes)
-          client   (figaro/client node-set)]
-      (assoc this :client client)
+                        nodes)]
+      ;(Thread/sleep 15000)
+      (info "connecting to " (name node))
+      (while (try (assoc this :client (figaro/client node-set))
+                  false
+                  (catch ExecutionException e
+                    (debug node "Connection attempt failed. Retrying...")
+                    (Thread/sleep 2000)
+                    true)))
       (assoc this :register (figaro/dist-atom client "register"))))
 
   (invoke! [this test op]
     (case (:f op)
       :read (assoc op
               :type :ok,
-              :value (figaro/get! register))
+              :value (figaro/get register))
 
       :write (do
                (figaro/set! register (:value op))
@@ -124,7 +131,7 @@
              (assoc op :type (if ok? :ok :fail)))))
 
   (teardown! [this test]
-    (figaro/close client)))
+    (figaro/close! client)))
 
 (defn cas-register-client
   "A basic CAS register on top of a single key and bin."
@@ -215,3 +222,7 @@
 (def cas-crash-subset-test
   (cas-register-test "crash"
                      {:nemesis crash-nemesis}))
+
+;(def cas-leave-join-test
+;  (cas-register-test "leave-join"
+;                     {:nemesis crash-nemesis}))
