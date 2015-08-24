@@ -114,6 +114,7 @@
                     (debug node "Connection attempt failed. Retrying...")
                     (Thread/sleep 2000)
                     true)))
+      (debug node "Client connected!")
       (assoc this :register (figaro/dist-atom client "register"))))
 
   (invoke! [this test op]
