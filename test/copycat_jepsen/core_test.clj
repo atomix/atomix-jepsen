@@ -1,6 +1,7 @@
 (ns copycat-jepsen.core-test
   (:require [clojure.test :refer :all]
             [clojure.pprint :refer [pprint]]
+            [clojure.tools.logging :refer [error]]
             [copycat-jepsen.core :refer :all]
             [jepsen [core :as jepsen]
              [report :as report]]))
@@ -26,14 +27,17 @@
 (defn- run-cas-register-test!
   "Runs a cas register test"
   [test]
-  (let [test (jepsen/run! test)
-        timestamp (current-time)]
-    (or (is (:valid? (:results test)))
-        (println (:error (:results test))))
-    (report/to (str "report/" timestamp "/" (:name test) "-history.edn")
-               (pprint (:history test)))
-    (report/to (str "report/" timestamp "/" (:name test) "-linearizability.txt")
-               (-> test :results :linear report/linearizability))))
+  (try
+    (let [test (jepsen/run! test)
+          timestamp (current-time)]
+      (or (is (:valid? (:results test)))
+          (println (:error (:results test))))
+      (report/to (str "report/" timestamp "/" (:name test) "-history.edn")
+                 (pprint (:history test)))
+      (report/to (str "report/" timestamp "/" (:name test) "-linearizability.txt")
+                 (-> test :results :linear report/linearizability)))
+    (catch Exception e
+      (error e "Unexpected exception"))))
 
 (deftest cas-test-bridge
   (run-cas-register-test! cas-bridge-test))

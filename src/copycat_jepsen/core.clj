@@ -72,6 +72,7 @@
         jarfile         "/root/.m2/repository/net/kuujo/copycat/copycat-server-example/0.6.0-SNAPSHOT/copycat-server-example-0.6.0-SNAPSHOT-shaded.jar"]
     (info node "starting copycat")
     (meh (c/exec :truncate :--size 0 "/var/log/copycat.log"))
+    (meh (c/exec :rm "/opt/copycat/examples/server/*.log"))
     (c/su
       (c/cd "/opt/copycat/examples/server"
             (c/exec :java :-jar jarfile local-node-arg other-node-args
@@ -110,7 +111,7 @@
       (info "connecting to " (name node))
       (while (try (assoc this :client (figaro/client node-set))
                   false
-                  (catch ExecutionException e
+                  (catch Exception e
                     (debug node "Connection attempt failed. Retrying...")
                     (Thread/sleep 2000)
                     true)))
