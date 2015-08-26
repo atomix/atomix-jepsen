@@ -2,7 +2,7 @@
     (:require [clojure [pprint :refer :all]
                [string :as str]]
               [clojure.java.io :as io]
-              [clojure.tools.logging :refer [debug info warn]]
+              [clojure.tools.logging :refer [debug info warn error]]
               [copycat-jepsen.util :as cutil]
               [figaro.core :as figaro]
               [jepsen [core :as jepsen]
@@ -21,7 +21,8 @@
                [util :as net/util]]
               [jepsen.os.debian :as debian]
               [jepsen.checker.timeline :as timeline])
-  (:import (java.util.concurrent ExecutionException)))
+  (:import (java.util.concurrent ExecutionException)
+           (net.kuujo.copycat Copycat CopycatClient CopycatReplica)))
 
 (defn- node-id [node]
   (Integer/parseInt (subs (name node) 1)))
@@ -72,7 +73,7 @@
         jarfile         "/root/.m2/repository/net/kuujo/copycat/copycat-server-example/0.6.0-SNAPSHOT/copycat-server-example-0.6.0-SNAPSHOT-shaded.jar"]
     (info node "starting copycat")
     (meh (c/exec :truncate :--size 0 "/var/log/copycat.log"))
-    (meh (c/exec :rm "/opt/copycat/examples/server/*.log"))
+    (meh (c/su (c/exec :rm "/opt/copycat/examples/server/*.log")))
     (c/su
       (c/cd "/opt/copycat/examples/server"
             (c/exec :java :-jar jarfile local-node-arg other-node-args
@@ -108,15 +109,18 @@
                                    :port 5555)
                         nodes)]
       ;(Thread/sleep 15000)
-      (info "connecting to " (name node))
-      (while (try (assoc this :client (figaro/client node-set))
-                  false
-                  (catch Exception e
-                    (debug node "Connection attempt failed. Retrying...")
-                    (Thread/sleep 2000)
-                    true)))
-      (debug node "Client connected!")
-      (assoc this :register (figaro/dist-atom client "register"))))
+      (info "connecting for" (name node))
+      (while
+        (try
+          (let [client (figaro/client node-set)]
+            (debug node "Client connected!")
+            (assoc this :client client)
+            (assoc this :register (figaro/dist-atom client "register")))
+          false
+          (catch Exception e
+            (debug node "Connection attempt failed. Retrying..." e)
+            (Thread/sleep 2000)
+            true)))))
 
   (invoke! [this test op]
     (case (:f op)
