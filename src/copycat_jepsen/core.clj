@@ -75,8 +75,8 @@
         jarfile "/root/.m2/repository/net/kuujo/copycat/copycat-server-example/0.6.0-SNAPSHOT/copycat-server-example-0.6.0-SNAPSHOT-shaded.jar"]
     (info node "starting copycat")
     (meh (c/exec :truncate :--size 0 "/var/log/copycat.log"))
-    (meh (c/exec :rm "/root/copycat*.log"))
     (c/su
+      (meh (c/exec :rm :-rf "/root/logs/"))
       (c/cd "/root"
             (c/exec :java :-jar jarfile local-node-arg other-node-args
                     (c/lit "2>> /dev/null >> /var/log/copycat.log & echo $!"))))))
