@@ -21,8 +21,10 @@
                [util :as net/util]]
               [jepsen.os.debian :as debian]
               [jepsen.checker.timeline :as timeline])
-  (:import (java.util.concurrent ExecutionException)
-           (net.kuujo.copycat Copycat CopycatClient CopycatReplica)))
+
+  ;(:import (java.util.concurrent ExecutionException)
+  ;         (net.kuujo.copycat Copycat CopycatClient CopycatReplica))
+  )
 
 (defn- node-id [node]
   (Integer/parseInt (subs (name node) 1)))
@@ -63,21 +65,20 @@
 (defn start!
   "Starts copycat."
   [node test]
-  (let [nodes           (:node-set test)
-        other-nodes     (apply merge
-                               (map #(assoc {} % (disj nodes %))
-                                    nodes))
-        local-node-arg  (str (node-id node) ":5555")
+  (let [nodes (:node-set test)
+        other-nodes (apply merge
+                           (map #(assoc {} % (disj nodes %))
+                                nodes))
+        local-node-arg (str (node-id node) ":5555")
         other-node-args (map #(str (node-id %) ":" (name %) ":5555")
                              (node other-nodes))
-        jarfile         "/root/.m2/repository/net/kuujo/copycat/copycat-server-example/0.6.0-SNAPSHOT/copycat-server-example-0.6.0-SNAPSHOT-shaded.jar"]
+        jarfile "/root/.m2/repository/net/kuujo/copycat/copycat-server-example/0.6.0-SNAPSHOT/copycat-server-example-0.6.0-SNAPSHOT-shaded.jar"]
     (info node "starting copycat")
     (meh (c/exec :truncate :--size 0 "/var/log/copycat.log"))
-    (meh (c/su (c/exec :rm "/opt/copycat/examples/server/*.log")))
+    (meh (c/exec :rm "/root/copycat*.log"))
     (c/su
-      (c/cd "/opt/copycat/examples/server"
-            (c/exec :java :-jar jarfile local-node-arg other-node-args
-                    (c/lit "2>> /dev/null >> /var/log/copycat.log & echo $!"))))))
+      (c/exec :java :-jar jarfile local-node-arg other-node-args
+              (c/lit "2>> /dev/null >> /var/log/copycat.log & echo $!")))))
 
 (defn stop!
   "Stops copycat."
@@ -103,24 +104,20 @@
 (defrecord CasRegisterClient [client register nodes]
   client/Client
   (setup! [this test node]
-    (info "connecting to copyat node" (name node))
     (let [node-set (map #(hash-map :id (node-id %)
                                    :host (name %)
                                    :port 5555)
                         nodes)]
-      ;(Thread/sleep 15000)
-      (info "connecting for" (name node))
-      (while
-        (try
+      (cutil/try-until-success
+        #(do
+          (info "Creating client connection to" node-set)
           (let [client (figaro/client node-set)]
             (debug node "Client connected!")
             (assoc this :client client)
-            (assoc this :register (figaro/dist-atom client "register")))
-          false
-          (catch Exception e
-            (debug node "Connection attempt failed. Retrying..." e)
-            (Thread/sleep 2000)
-            true)))))
+            (assoc this :register (figaro/dist-atom client "register"))))
+        #(do
+          (debug node "Connection attempt failed. Retrying..." %)
+          (Thread/sleep 2000)))))
 
   (invoke! [this test op]
     (case (:f op)
@@ -193,7 +190,7 @@
   "Returns a map of base test settings"
   [name]
   (let [base-test tests/noop-test
-        node-set  (into #{} (:nodes base-test))]
+        node-set (into #{} (:nodes base-test))]
     (merge base-test
            {:name     (str "copycat " name)
             :os       debian/os
