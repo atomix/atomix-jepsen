@@ -27,6 +27,9 @@ ssh $N1_IP "apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys EE
 # Install other dependencies and remove systemd
 ssh $N1_IP "apt-get install -qqy git maven net-tools wget sysvinit-core sysvinit sysvinit-utils curl vim man faketime unzip iptables iputils-ping logrotate && apt-get remove -y --purge --auto-remove systemd" 
 
+# Cleanup
+ssh $N1_IP "rm -rf /var/lib/apt/lists/* && rm -rf /var/cache/oracle-jdk8-installer"
+
 # Export the sub-container
 docker export n1 > /root/jepsennode.tar
 gzip /root/jepsennode.tar
