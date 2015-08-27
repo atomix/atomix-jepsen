@@ -8,6 +8,17 @@
          (c/exec
            (c/lit (str "test -d " path " && echo 1"))))))
 
+(defn try-until-success
+  [thunk failure-thunk]
+  (loop []
+    (if-let [result (try
+                      (thunk)
+                      (catch Exception e
+                        (failure-thunk e)
+                        nil))]
+      result
+      (recur))))
+
 (defn mostly-small-nonempty-subset
   "Returns a subset of the given collection, with a logarithmically decreasing
   probability of selecting more elements. Always selects at least one element.
