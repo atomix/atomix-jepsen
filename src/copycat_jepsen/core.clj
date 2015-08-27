@@ -77,8 +77,9 @@
     (meh (c/exec :truncate :--size 0 "/var/log/copycat.log"))
     (meh (c/exec :rm "/root/copycat*.log"))
     (c/su
-      (c/exec :java :-jar jarfile local-node-arg other-node-args
-              (c/lit "2>> /dev/null >> /var/log/copycat.log & echo $!")))))
+      (c/cd "/root"
+            (c/exec :java :-jar jarfile local-node-arg other-node-args
+                    (c/lit "2>> /dev/null >> /var/log/copycat.log & echo $!"))))))
 
 (defn stop!
   "Stops copycat."
