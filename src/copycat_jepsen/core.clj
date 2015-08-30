@@ -206,6 +206,9 @@
     (merge base-test
            {:client    (cas-register-client (:node-set base-test))
             :model     (model/cas-register)
+            :checker   (checker/compose {:linear checker/linearizable
+                                         :latency (checker/latency-graph
+                                                    "report/")})
             :generator (->> gen/cas
                             (gen/delay 1/2)
                             std-gen)}
