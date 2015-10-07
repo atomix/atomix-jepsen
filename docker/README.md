@@ -1,6 +1,6 @@
 # Docker Jepsen
 
-To build a Docker Jepsen image for running copycat-jepsen:
+To build a Docker Jepsen image for running atomix-jepsen:
 
 1.  From this directory, run:
 

@@ -1,8 +1,9 @@
-(defproject copycat-jepsen "0.1.0-SNAPSHOT"
-  :description "Copycat Jepsen tests"
-  :url "http://github.com/jhalterman/copycat-jepsen"
+(defproject atomix-jepsen "0.1.0-SNAPSHOT"
+  :description "Atomix Jepsen tests"
+  :url "http://github.com/atomix/atomix-jepsen"
   :license {:name "Eclipse Public License"
             :url  "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.6.0"]
-                 [jepsen "0.0.4-SNAPSHOT"]
-                 [figaro "0.1.0-SNAPSHOT"]])
+                 [jepsen "0.0.4"]
+                 [trinity "0.1.0-SNAPSHOT"]]
+  :repositories [["sonatype-nexus-snapshots" {:url "https://oss.sonatype.org/content/repositories/snapshots"}]])

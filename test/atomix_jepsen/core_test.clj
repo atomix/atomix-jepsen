@@ -1,8 +1,8 @@
-(ns copycat-jepsen.core-test
+(ns atomix-jepsen.core-test
   (:require [clojure.test :refer :all]
             [clojure.pprint :refer [pprint]]
             [clojure.tools.logging :refer [error]]
-            [copycat-jepsen.core :refer :all]
+            [atomix-jepsen.core :refer :all]
             [jepsen [core :as jepsen]
              [report :as report]]))
 

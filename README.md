@@ -1,10 +1,10 @@
-# copycat-jepsen
+# atomix-jepsen
 
-[Copycat][copycat] [Jepsen][jepsen] tests.
+[Atomix][atomix] [Jepsen][jepsen] tests.
 
 ## Overview
 
-copycat-jepsen is a suite of [Jepsen][jepsen] based tests for [Copycat][copycat] including:
+atomix-jepsen is a suite of [Jepsen][jepsen] based tests for [Atomix][atomix] including:
 
 * Linearizable read
 * Linearizable write
@@ -19,23 +19,23 @@ The tests are run against various nemeses including:
 
 ## Setup
 
-To run copycat-jepsen you'll need to setup a Jepsen test environment. If you don't already have one, you can create one using Docker. First, clone copycat-jepsen:
+To run atomix-jepsen you'll need to setup a Jepsen test environment. If you don't already have one, you can create one using Docker. First, clone atomix-jepsen:
 
 ```
-git clone https://github.com/jhalterman/copycat-jepsen.git
+git clone https://github.com/atomix/atomix-jepsen.git
 ```
 
-Then create a jepsen Docker container, sharing your `copycat-jepsen` directory into the container:
+Then create a jepsen Docker container, sharing your `atomix-jepsen` directory into the container:
 
 ```
-cd copycat-jepsen
-docker run --privileged --name jepsen -it -v $(pwd):/copycat-jepsen jhalterman/jepsen
+cd atomix-jepsen
+docker run --privileged --name jepsen -it -v $(pwd):/atomix-jepsen jhalterman/jepsen
 ```
-This jepsen container will include 5 [docker-in-docker](https://github.com/jpetazzo/dind) sub-containers in which Copycat will be deployed.
+This jepsen container will include 5 [docker-in-docker](https://github.com/jpetazzo/dind) sub-containers in which Atomix will be deployed.
 
 ## Usage
 
-To run the copycat-jepsen tests, from your `copycat-jepsen` directory, run:
+To run the atomix-jepsen tests, from your `atomix-jepsen` directory, run:
 
 ```
 lein test
@@ -53,7 +53,7 @@ To cut down on test setup time and disk usage, you can share your local `~/.m2` 
 
 #### Skip Build
 
-To run Copycat from your local `.m2` repo instead of pulling and building it from Github, run as:
+To use Atomix from your local `.m2` repo instead of pulling and building it from Github, run as:
 
 ```
 DEV=true lein test
@@ -65,5 +65,5 @@ Copyright © 2015 Jonathan Halterman
 
 Distributed under the Eclipse Public License version 1.0
 
-[copycat]: https://github.com/kuujo/copycat
+[atomix]: https://github.com/atomix/atomix
 [jepsen]: https://github.com/aphyr/jepsen

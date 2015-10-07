@@ -68,6 +68,6 @@ cat <<EOF
 Your Docker Jepsen environment is ready!
 EOF
 
-cd /copycat-jepsen
+cd /atomix-jepsen
 
 fi

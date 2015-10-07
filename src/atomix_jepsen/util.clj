@@ -1,4 +1,4 @@
-(ns copycat-jepsen.util
+(ns atomix-jepsen.util
     (:require [jepsen [control :as c]
                [util :as util]]))
 

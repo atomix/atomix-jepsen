@@ -1,10 +1,10 @@
-(ns copycat-jepsen.core
+(ns atomix-jepsen.core
     (:require [clojure [pprint :refer :all]
                [string :as str]]
               [clojure.java.io :as io]
               [clojure.tools.logging :refer [debug info warn error]]
-              [copycat-jepsen.util :as cutil]
-              [figaro.core :as figaro]
+              [atomix-jepsen.util :as cutil]
+              [trinity.core :as trinity]
               [jepsen [core :as jepsen]
                [db :as db]
                [util :as util :refer [meh timeout]]
@@ -32,10 +32,10 @@
 ; Test lifecycle
 
 (defn install!
-  "Installs copycat on the given node."
+  "Installs atomix on the given node."
   [node version]
 
-  ; Setup for non copycat-jepsen Docker environments
+  ; Setup for non atomix-jepsen Docker environments
   (when (nil? (debian/installed-version "oracle-java8-installer"))
     (info node "installing JDK")
     (c/su
@@ -46,50 +46,50 @@
     (debian/update!)
     (debian/install ["oracle-java8-installer" "oracle-java8-set-default" "git" "maven"]))
 
-  ; Install copycat
+  ; Install atomix
   (when (not (get (System/getenv) "DEV"))
     (c/su
-      (info node "fetching copycat")
-      (if-not (cutil/dir-exists "/opt/copycat")
+      (info node "fetching atomix")
+      (if-not (cutil/dir-exists "/opt/atomix")
         (c/cd "/opt"
-              (c/exec :git :clone "https://github.com/kuujo/copycat.git"))
-        (c/cd "/opt/copycat"
+              (c/exec :git :clone "https://github.com/atomix/atomix.git"))
+        (c/cd "/opt/atomix"
               (c/exec :git :pull)))
-      (info node "building copycat")
-      (c/cd "/opt/copycat"
+      (info node "building atomix")
+      (c/cd "/opt/atomix"
             (c/exec :git :checkout)
             (c/exec :mvn :clean :install "-DskipTests=true"))
-      (c/cd "/opt/copycat/examples"
+      (c/cd "/opt/atomix/examples"
             (c/exec :mvn :clean :install)))))
 
 (defn start!
-  "Starts copycat."
+  "Starts atomix."
   [node test]
   (let [nodes (:node-set test)
         other-nodes (apply merge
                            (map #(assoc {} % (disj nodes %))
                                 nodes))
-        local-node-arg (str (node-id node) ":5555")
-        other-node-args (map #(str (node-id %) ":" (name %) ":5555")
+        local-node-arg "5555"
+        other-node-args (map #(str (name %) ":5555")
                              (node other-nodes))
-        jarfile "/root/.m2/repository/net/kuujo/copycat/copycat-server-example/0.6.0-SNAPSHOT/copycat-server-example-0.6.0-SNAPSHOT-shaded.jar"]
-    (info node "starting copycat")
-    (meh (c/exec :truncate :--size 0 "/var/log/copycat.log"))
+        jarfile "/root/.m2/repository/io/atomix/atomix-server-example/0.1.0-SNAPSHOT/atomix-server-example-0.1.0-SNAPSHOT-shaded.jar"]
+    (info node "starting atomix")
+    (meh (c/exec :truncate :--size 0 "/var/log/atomix.log"))
     (c/su
       (meh (c/exec :rm :-rf "/root/logs/"))
       (c/cd "/root"
             (c/exec :java :-jar jarfile local-node-arg other-node-args
-                    (c/lit "2>> /dev/null >> /var/log/copycat.log & echo $!"))))))
+                    (c/lit "2>> /dev/null >> /var/log/atomix.log & echo $!"))))))
 
 (defn stop!
-  "Stops copycat."
+  "Stops atomix."
   [node]
-  (info node "stopping copycat")
+  (info node "stopping atomix")
   (c/su
     (meh (c/exec :pkill :-9 :java))))
 
 (defn db
-  "Copycat database"
+  "Atomix database"
   [version]
   (reify db/DB
     (setup! [this test node]
@@ -112,10 +112,10 @@
       (cutil/try-until-success
         #(do
           (info "Creating client connection to" node-set)
-          (let [client (figaro/client node-set)]
+          (let [client (trinity/client node-set)]
             (debug node "Client connected!")
             (assoc this :client client)
-            (assoc this :register (figaro/dist-atom client "register"))))
+            (assoc this :register (trinity/dist-atom client "register"))))
         #(do
           (debug node "Connection attempt failed. Retrying..." %)
           (Thread/sleep 2000)))))
@@ -124,18 +124,18 @@
     (case (:f op)
       :read (assoc op
               :type :ok,
-              :value (figaro/get register))
+              :value (trinity/get register))
 
       :write (do
-               (figaro/set! register (:value op))
+               (trinity/set! register (:value op))
                (assoc op :type :ok))
 
       :cas (let [[v v'] (:value op)
-                 ok? (figaro/cas! register v v')]
+                 ok? (trinity/cas! register v v')]
              (assoc op :type (if ok? :ok :fail)))))
 
   (teardown! [this test]
-    (figaro/close! client)))
+    (trinity/close! client)))
 
 (defn cas-register-client
   "A basic CAS register on top of a single key and bin."
@@ -193,7 +193,7 @@
   (let [base-test tests/noop-test
         node-set (into #{} (:nodes base-test))]
     (merge base-test
-           {:name     (str "copycat " name)
+           {:name     (str "atomix " name)
             :os       debian/os
             :db       (db "1.0")
             :checker  (checker/compose {:linear checker/linearizable})
@@ -207,8 +207,7 @@
            {:client    (cas-register-client (:node-set base-test))
             :model     (model/cas-register)
             :checker   (checker/compose {:linear checker/linearizable
-                                         :latency (checker/latency-graph
-                                                    "report/")})
+                                         :latency (checker/latency-graph)})
             :generator (->> gen/cas
                             (gen/delay 1/2)
                             std-gen)}
