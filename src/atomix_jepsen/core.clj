@@ -115,7 +115,7 @@
           (let [client (trinity/client node-set)]
             (debug node "Client connected!")
             (assoc this :client client)
-            (assoc this :register (trinity/dist-atom client "register"))))
+            (assoc this :register (trinity/dist-atom client (:name test)))))
         #(do
           (debug node "Connection attempt failed. Retrying..." %)
           (Thread/sleep 2000)))))
