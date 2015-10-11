@@ -72,7 +72,7 @@
         local-node-arg "5555"
         other-node-args (map #(str (name %) ":5555")
                              (node other-nodes))
-        jarfile "/root/.m2/repository/io/atomix/atomix-server-example/0.1.0-SNAPSHOT/atomix-server-example-0.1.0-SNAPSHOT-shaded.jar"]
+        jarfile "/root/.m2/repository/io/atomix/atomix-standalone-server-example/0.1.0-SNAPSHOT/atomix-standalone-server-example-0.1.0-SNAPSHOT-shaded.jar"]
     (info node "starting atomix")
     (meh (c/exec :truncate :--size 0 "/var/log/atomix.log"))
     (c/su
