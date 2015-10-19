@@ -112,10 +112,12 @@
       (cutil/try-until-success
         #(do
           (info "Creating client connection to" node-set)
-          (let [client (trinity/client node-set)]
+          (let [client (trinity/client node-set)
+                test-name (:name test)]
             (debug node "Client connected!")
             (assoc this :client client)
-            (assoc this :register (trinity/dist-atom client (:name test)))))
+            (debug node "Created atomix resource " test-name)
+            (assoc this :register (trinity/dist-atom client test-name))))
         #(do
           (debug node "Connection attempt failed. Retrying..." %)
           (Thread/sleep 2000)))))
