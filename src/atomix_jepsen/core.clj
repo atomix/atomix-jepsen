@@ -22,8 +22,8 @@
               [jepsen.os.debian :as debian]
               [jepsen.checker.timeline :as timeline])
 
-  ;(:import (java.util.concurrent ExecutionException)
-  ;         (net.kuujo.copycat Copycat CopycatClient CopycatReplica))
+  ;(:import (io.atomix Atomix AtomixClient AtomixReplica)
+  ;         )
   )
 
 (defn- node-id [node]
@@ -109,12 +109,13 @@
       (cutil/try-until-success
         #(do
           (info "Creating client connection to" node-set)
-          (let [client (trinity/client node-set)
-                test-name (:name test)]
-            (debug node "Client connected!")
-            (assoc this :client client)
+          (let [atomix-client (trinity/client node-set)
+                _ (debug node "Client connected!")
+                test-name (:name test)
+                register (trinity/dist-atom atomix-client test-name)]
             (debug node "Created atomix resource " test-name)
-            (assoc this :register (trinity/dist-atom client test-name))))
+            (assoc this :client atomix-client
+                        :register register)))
         #(do
           (debug node "Connection attempt failed. Retrying..." %)
           (Thread/sleep 2000)))))
@@ -134,7 +135,7 @@
              (assoc op :type (if ok? :ok :fail)))))
 
   (teardown! [this test]
-    (info "Closing client " this)
+    (info "Closing client " client)
     (trinity/close! client)))
 
 (defn cas-register-client
