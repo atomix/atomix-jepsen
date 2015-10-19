@@ -65,13 +65,11 @@
 (defn start!
   "Starts atomix."
   [node test]
-  (let [nodes (:node-set test)
-        other-nodes (apply merge
-                           (map #(assoc {} % (disj nodes %))
-                                nodes))
+  (let [nodes (into #{} (:nodes test))
+        other-nodes (clojure.set/difference nodes (set [node]))
         local-node-arg "5555"
-        other-node-args (map #(str (name %) ":5555")
-                             (node other-nodes))
+        other-node-args (doall (map #(str (name %) ":5555")
+                                    other-nodes))
         jarfile "/root/.m2/repository/io/atomix/atomix-standalone-server-example/0.1.0-SNAPSHOT/atomix-standalone-server-example-0.1.0-SNAPSHOT-shaded.jar"]
     (info node "starting atomix")
     (meh (c/exec :truncate :--size 0 "/var/log/atomix.log"))
@@ -105,8 +103,7 @@
 (defrecord CasRegisterClient [client register nodes]
   client/Client
   (setup! [this test node]
-    (let [node-set (map #(hash-map :id (node-id %)
-                                   :host (name %)
+    (let [node-set (map #(hash-map :host (name %)
                                    :port 5555)
                         nodes)]
       (cutil/try-until-success
@@ -137,10 +134,11 @@
              (assoc op :type (if ok? :ok :fail)))))
 
   (teardown! [this test]
+    (info "Closing client " this)
     (trinity/close! client)))
 
 (defn cas-register-client
-  "A basic CAS register on top of a single key and bin."
+  "A basic CAS register client."
   [nodes]
   (CasRegisterClient. nil nil nodes))
 
@@ -192,21 +190,20 @@
 (defn- base-test
   "Returns a map of base test settings"
   [name]
-  (let [base-test tests/noop-test
-        node-set (into #{} (:nodes base-test))]
+  (let [base-test tests/noop-test]
     (merge base-test
            {:name     (str "atomix " name)
             :os       debian/os
             :db       (db "1.0")
             :checker  (checker/compose {:linear checker/linearizable})
-            :node-set node-set})))
+            })))
 
 (defn- cas-register-test
   "Returns a map of jepsen test configuration for testing cas"
   [name opts]
   (let [base-test (base-test (str "cas register " name))]
     (merge base-test
-           {:client    (cas-register-client (:node-set base-test))
+           {:client    (cas-register-client (:nodes base-test))
             :model     (model/cas-register)
             :checker   (checker/compose {:linear checker/linearizable
                                          :latency (checker/latency-graph)})
