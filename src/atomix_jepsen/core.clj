@@ -1,30 +1,30 @@
 (ns atomix-jepsen.core
-    (:require [clojure [pprint :refer :all]
-               [string :as str]]
-              [clojure.java.io :as io]
-              [clojure.tools.logging :refer [debug info warn error]]
-              [atomix-jepsen.util :as cutil]
-              [trinity.core :as trinity]
-              [jepsen [core :as jepsen]
-               [db :as db]
-               [util :as util :refer [meh timeout]]
-               [control :as c :refer [|]]
-               [client :as client]
-               [checker :as checker]
-               [model :as model]
-               [generator :as gen]
-               [nemesis :as nemesis]
-               [store :as store]
-               [report :as report]
-               [tests :as tests]]
-              [jepsen.control [net :as net]
-               [util :as net/util]]
-              [jepsen.os.debian :as debian]
-              [jepsen.checker.timeline :as timeline])
+  (:require [clojure [pprint :refer :all]
+             [string :as str]]
+            [clojure.java.io :as io]
+            [clojure.tools.logging :refer [debug info warn error]]
+            [atomix-jepsen.util :as cutil]
+            [trinity.core :as trinity]
+            [jepsen [core :as jepsen]
+             [db :as db]
+             [util :as util :refer [meh timeout]]
+             [control :as c :refer [|]]
+             [client :as client]
+             [checker :as checker]
+             [model :as model]
+             [generator :as gen]
+             [nemesis :as nemesis]
+             [store :as store]
+             [report :as report]
+             [tests :as tests]]
+            [jepsen.control [net :as net]
+             [util :as net/util]]
+            [jepsen.os.debian :as debian]
+            [jepsen.checker.timeline :as timeline])
 
   ;(:import (io.atomix Atomix AtomixClient AtomixReplica)
   ;         )
-  )
+  (:import (java.util.concurrent ExecutionException)))
 
 (defn- node-id [node]
   (Integer/parseInt (subs (name node) 1)))
@@ -113,7 +113,7 @@
                 _ (debug node "Client connected!")
                 test-name (:name test)
                 register (trinity/dist-atom atomix-client test-name)]
-            (debug node "Created atomix resource " test-name)
+            (debug node "Created atomix resource" test-name)
             (assoc this :client atomix-client
                         :register register)))
         #(do
@@ -121,18 +121,21 @@
           (Thread/sleep 2000)))))
 
   (invoke! [this test op]
-    (case (:f op)
-      :read (assoc op
-              :type :ok,
-              :value (trinity/get register))
+    (try
+      (case (:f op)
+        :read (assoc op
+                :type :ok,
+                :value (trinity/get register))
 
-      :write (do
-               (trinity/set! register (:value op))
-               (assoc op :type :ok))
+        :write (do
+                 (trinity/set! register (:value op))
+                 (assoc op :type :ok))
 
-      :cas (let [[v v'] (:value op)
-                 ok? (trinity/cas! register v v')]
-             (assoc op :type (if ok? :ok :fail)))))
+        :cas (let [[v v'] (:value op)
+                   ok? (trinity/cas! register v v')]
+               (assoc op :type (if ok? :ok :fail))))
+      (catch ExecutionException e
+        (assoc op :type :fail :value (.getMessage e)))))
 
   (teardown! [this test]
     (info "Closing client " client)
@@ -228,7 +231,3 @@
 (def cas-crash-subset-test
   (cas-register-test "crash"
                      {:nemesis crash-nemesis}))
-
-;(def cas-leave-join-test
-;  (cas-register-test "leave-join"
-;                     {:nemesis crash-nemesis}))
