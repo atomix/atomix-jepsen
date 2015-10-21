@@ -174,7 +174,7 @@
                             (gen/sleep 10)
                             (gen/log* "Stopping Nemesis")
                             {:type :info :f :stop}])))
-         (gen/time-limit 5))
+         (gen/time-limit 60))
     (recover)
     (read-once)))
 
