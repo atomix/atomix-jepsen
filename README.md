@@ -6,16 +6,15 @@
 
 atomix-jepsen is a suite of [Jepsen][jepsen] based tests for [Atomix][atomix] including:
 
-* Linearizable read
-* Linearizable write
 * Linearizable CAS
 
 The tests are run against various nemeses including:
 
 * Partition with random halves
-* Partition a random node
+* Partition a random isolated node
 * Partition in half with a bridge node
-* Crash a random minority of nodes
+* Crash a random set of nodes
+* Randomize the clock on all nodes
 
 ## Setup
 
