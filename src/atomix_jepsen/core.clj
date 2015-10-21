@@ -21,19 +21,13 @@
              [util :as net/util]]
             [jepsen.os.debian :as debian]
             [jepsen.checker.timeline :as timeline])
-
-  ;(:import (io.atomix Atomix AtomixClient AtomixReplica)
-  ;         )
   (:import (java.util.concurrent ExecutionException)))
-
-(defn- node-id [node]
-  (Integer/parseInt (subs (name node) 1)))
 
 ; Test lifecycle
 
 (defn install!
   "Installs atomix on the given node."
-  [node version]
+  [node]
 
   ; Setup for non atomix-jepsen Docker environments
   (when (nil? (debian/installed-version "oracle-java8-installer"))
@@ -65,7 +59,7 @@
 (defn start!
   "Starts atomix."
   [node test]
-  (let [nodes (into #{} (:nodes test))
+  (let [nodes (set (:nodes test))
         other-nodes (clojure.set/difference nodes (set [node]))
         local-node-arg "5555"
         other-node-args (doall (map #(str (name %) ":5555")
@@ -88,11 +82,11 @@
 
 (defn db
   "Atomix database"
-  [version]
+  []
   (reify db/DB
     (setup! [this test node]
       (doto node
-        (install! version)
+        (install!)
         (start! test)))
 
     (teardown! [this test node]
@@ -100,25 +94,29 @@
 
 ; Test clients
 
-(defrecord CasRegisterClient [client register nodes]
+(def setup-lock (Object.))
+
+(defrecord CasRegisterClient [client register]
   client/Client
   (setup! [this test node]
-    (let [node-set (map #(hash-map :host (name %)
-                                   :port 5555)
-                        nodes)]
-      (cutil/try-until-success
-        #(do
-          (info "Creating client connection to" node-set)
-          (let [atomix-client (trinity/client node-set)
-                _ (debug node "Client connected!")
-                test-name (:name test)
-                register (trinity/dist-atom atomix-client test-name)]
-            (debug node "Created atomix resource" test-name)
-            (assoc this :client atomix-client
-                        :register register)))
-        #(do
-          (debug node "Connection attempt failed. Retrying..." %)
-          (Thread/sleep 2000)))))
+    ; One client connection at a time
+    (locking setup-lock
+      (let [node-set (map #(hash-map :host (name %)
+                                     :port 5555)
+                          (:nodes test))]
+        (cutil/try-until-success
+          #(do
+            (info "Creating client connections to" node-set)
+            (let [atomix-client (trinity/client node-set)
+                  _ (debug node "Client connected!")
+                  test-name (:name test)
+                  register (trinity/dist-atom atomix-client test-name)]
+              (debug node "Created atomix resource" test-name)
+              (assoc this :client atomix-client
+                          :register register)))
+          #(do
+            (debug node "Connection attempt failed. Retrying..." %)
+            (Thread/sleep 2000))))))
 
   (invoke! [this test op]
     (try
@@ -143,8 +141,8 @@
 
 (defn cas-register-client
   "A basic CAS register client."
-  [nodes]
-  (CasRegisterClient. nil nil nodes))
+  []
+  (CasRegisterClient. nil nil))
 
 ; Generators
 
@@ -191,30 +189,29 @@
 
 ; Tests
 
-(defn- base-test
-  "Returns a map of base test settings"
+(defn- atomix-test
+  "Returns a map of atomix test settings"
   [name]
-  (let [base-test tests/noop-test]
-    (merge base-test
-           {:name     (str "atomix " name)
-            :os       debian/os
-            :db       (db "1.0")
-            :checker  (checker/compose {:linear checker/linearizable})
-            })))
+  (merge tests/noop-test
+         {:name (str "atomix " name)
+          :os   debian/os
+          :db   (db)
+          }))
 
 (defn- cas-register-test
   "Returns a map of jepsen test configuration for testing cas"
   [name opts]
-  (let [base-test (base-test (str "cas register " name))]
-    (merge base-test
-           {:client    (cas-register-client (:nodes base-test))
-            :model     (model/cas-register)
-            :checker   (checker/compose {:linear checker/linearizable
-                                         :latency (checker/latency-graph)})
-            :generator (->> gen/cas
-                            (gen/delay 1/2)
-                            std-gen)}
-           opts)))
+  (merge (atomix-test (str "cas register " name))
+         {:client    (cas-register-client)
+          :model     (model/cas-register)
+          :checker   (checker/compose {:html    timeline/html
+                                       :linear  checker/linearizable
+                                       :latency (checker/latency-graph)})
+          :generator (->> gen/cas
+                          (gen/delay 1/2)
+                          std-gen)}
+
+         opts))
 
 (def cas-bridge-test
   (cas-register-test "bridge"
@@ -231,3 +228,9 @@
 (def cas-crash-subset-test
   (cas-register-test "crash"
                      {:nemesis crash-nemesis}))
+
+(def cas-clock-drift-test
+  (cas-register-test "clock drift"
+                     {:nemesis (nemesis/clock-scrambler 10000)}))
+
+
