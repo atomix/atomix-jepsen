@@ -174,7 +174,7 @@
                             (gen/sleep 10)
                             (gen/log* "Stopping Nemesis")
                             {:type :info :f :stop}])))
-         (gen/time-limit 60))
+         (gen/time-limit 5))
     (recover)
     (read-once)))
 
@@ -204,13 +204,11 @@
   (merge (atomix-test (str "cas register " name))
          {:client    (cas-register-client)
           :model     (model/cas-register)
-          :checker   (checker/compose {:html    timeline/html
-                                       :linear  checker/linearizable
+          :checker   (checker/compose {:linear  checker/linearizable
                                        :latency (checker/latency-graph)})
           :generator (->> gen/cas
                           (gen/delay 1/2)
                           std-gen)}
-
          opts))
 
 (def cas-bridge-test
