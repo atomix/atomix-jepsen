@@ -101,13 +101,11 @@
   (setup! [this test node]
     ; One client connection at a time
     (locking setup-lock
-      (let [node-set (map #(hash-map :host (name %)
-                                     :port 5555)
-                          (:nodes test))]
+      (let [addresses (vector {:host (name node) :port 5555})]
         (cutil/try-until-success
           #(do
-            (info "Creating client connections to" node-set)
-            (let [atomix-client (trinity/client node-set)
+            (info "Creating client connection to" addresses)
+            (let [atomix-client (trinity/client addresses)
                   _ (debug node "Client connected!")
                   test-name (:name test)
                   register (trinity/dist-atom atomix-client test-name)]
@@ -171,7 +169,7 @@
            (gen/seq (cycle [(gen/sleep 5)
                             (gen/log* "Starting Nemesis")
                             {:type :info :f :start}
-                            (gen/sleep 10)
+                            (gen/sleep 5)
                             (gen/log* "Stopping Nemesis")
                             {:type :info :f :stop}])))
          (gen/time-limit 60))

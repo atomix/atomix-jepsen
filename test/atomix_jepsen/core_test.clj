@@ -22,5 +22,5 @@
 (deftest cas-test-crash-subset
   (run-test! cas-crash-subset-test))
 
-(deftest cas-test-clock-drift
-  (run-test! cas-clock-drift-test))
+;(deftest cas-test-clock-drift
+;  (run-test! cas-clock-drift-test))
