@@ -1,27 +1,22 @@
 (ns atomix-jepsen.core
-  (:require [clojure [pprint :refer :all]
-             [string :as str]]
-            [clojure.java.io :as io]
+  (:require [clojure [pprint :refer :all]]
             [clojure.tools.logging :refer [debug info warn error]]
-            [atomix-jepsen.util :as cutil]
-            [trinity.core :as trinity]
-            [jepsen [core :as jepsen]
+            [atomix-jepsen
+             [util :as cutil]]
+            [jepsen
              [db :as db]
              [util :as util :refer [meh timeout]]
              [control :as c :refer [|]]
              [client :as client]
-             [checker :as checker]
-             [model :as model]
              [generator :as gen]
              [nemesis :as nemesis]
-             [store :as store]
-             [report :as report]
              [tests :as tests]]
-            [jepsen.control [net :as net]
-             [util :as net/util]]
-            [jepsen.os.debian :as debian]
-            [jepsen.checker.timeline :as timeline])
-  (:import (java.util.concurrent ExecutionException)))
+            [jepsen.os.debian :as debian]))
+
+; Vars
+
+(def bootstrap (atom #{}))
+(def decommission (atom #{}))
 
 ; Test lifecycle
 
@@ -73,6 +68,12 @@
             (c/exec :java :-jar jarfile local-node-arg other-node-args
                     (c/lit "2>> /dev/null >> /var/log/atomix.log & echo $!"))))))
 
+(defn guarded-start!
+  "Guarded start that only starts non bootstrap and decommission nodes."
+  [node test]
+  (when-not (or (node @bootstrap) (node @decommission))
+    (start! node test)))
+
 (defn stop!
   "Stops atomix."
   [node]
@@ -87,60 +88,10 @@
     (setup! [this test node]
       (doto node
         (install!)
-        (start! test)))
+        (guarded-start! test)))
 
     (teardown! [this test node]
       (stop! node))))
-
-; Test clients
-
-(def setup-lock (Object.))
-
-(defrecord CasRegisterClient [client register]
-  client/Client
-  (setup! [this test node]
-    ; One client connection at a time
-    (locking setup-lock
-      (let [addresses (vector {:host (name node) :port 5555})]
-        (cutil/try-until-success
-          #(do
-            (info "Creating client connection to" addresses)
-            (let [atomix-client (trinity/client addresses)
-                  _ (debug node "Client connected!")
-                  test-name (:name test)
-                  register (trinity/dist-atom atomix-client test-name)]
-              (debug node "Created atomix resource" test-name)
-              (assoc this :client atomix-client
-                          :register register)))
-          #(do
-            (debug node "Connection attempt failed. Retrying..." %)
-            (Thread/sleep 2000))))))
-
-  (invoke! [this test op]
-    (try
-      (case (:f op)
-        :read (assoc op
-                :type :ok,
-                :value (trinity/get register))
-
-        :write (do
-                 (trinity/set! register (:value op))
-                 (assoc op :type :ok))
-
-        :cas (let [[v v'] (:value op)
-                   ok? (trinity/cas! register v v')]
-               (assoc op :type (if ok? :ok :fail))))
-      (catch ExecutionException e
-        (assoc op :type :fail :value (.getMessage e)))))
-
-  (teardown! [this test]
-    (info "Closing client " client)
-    (trinity/close! client)))
-
-(defn cas-register-client
-  "A basic CAS register client."
-  []
-  (CasRegisterClient. nil nil))
 
 ; Generators
 
@@ -160,73 +111,62 @@
       (gen/log* "Reading after Nemesis")
       (gen/once {:type :invoke, :f :read}))))
 
+(defn nemesis-gen
+  [pause-before-start pause-before-stop src-gen]
+  (gen/nemesis
+    (gen/seq (cycle [(gen/sleep pause-before-start)
+                     {:type :info :f :start}
+                     (gen/sleep pause-before-stop)
+                     {:type :info :f :stop}]))
+    src-gen))
+
 (defn std-gen
   "Takes a client generator and wraps it in a typical schedule and nemesis causing failover."
   [gen]
   (gen/phases
     (->> gen
-         (gen/nemesis
-           (gen/seq (cycle [(gen/sleep 5)
-                            (gen/log* "Starting Nemesis")
-                            {:type :info :f :start}
-                            (gen/sleep 5)
-                            (gen/log* "Stopping Nemesis")
-                            {:type :info :f :stop}])))
+         (nemesis-gen 8 8)
          (gen/time-limit 60))
     (recover)
     (read-once)))
 
 ; Nemesis
 
-(def crash-nemesis
+(defn crash-nemesis
   "A nemesis that crashes a random subset of nodes."
+  []
   (nemesis/node-start-stopper
-    cutil/mostly-small-nonempty-subset
+    (cutil/mostly-small-nonempty-subset bootstrap decommission)
     (fn start [test node] (stop! node) [:killed node])
     (fn stop [test node] (start! node test) [:restarted node])))
 
+(defn bootstrap-nemesis
+  "Bootstraps a new node into a running atomix cluster"
+  []
+  (reify client/Client
+    (setup! [this test _] this)
+
+    (invoke! [this test op]
+      (assoc op :type :info, :value
+                (case (:f op)
+                  :start (if-let [node (first @bootstrap)]
+                           (do (swap! bootstrap rest)
+                               (info "bootstrapping " node)
+                               (c/on node (start! node test))))
+                  :no-target
+                  :stop :no-target)))
+
+    (teardown! [this test])))
+
 ; Tests
 
-(defn- atomix-test
+(defn atomix-test
   "Returns a map of atomix test settings"
-  [name]
-  (merge tests/noop-test
-         {:name (str "atomix " name)
-          :os   debian/os
-          :db   (db)
-          }))
-
-(defn- cas-register-test
-  "Returns a map of jepsen test configuration for testing cas"
   [name opts]
-  (merge (atomix-test (str "cas register " name))
-         {:client    (cas-register-client)
-          :model     (model/cas-register)
-          :checker   (checker/compose {:linear  checker/linearizable
-                                       :latency (checker/latency-graph)})
-          :generator (->> gen/cas
-                          (gen/delay 1/2)
-                          std-gen)}
+  (merge tests/noop-test
+         {:name         (str "atomix " name)
+          :os           debian/os
+          :db           (db)
+          :bootstrap    #{}
+          :decommission #{}}
          opts))
-
-(def cas-bridge-test
-  (cas-register-test "bridge"
-                     {:nemesis (nemesis/partitioner (comp nemesis/bridge shuffle))}))
-
-(def cas-halves-test
-  (cas-register-test "halves"
-                     {:nemesis (nemesis/partition-random-halves)}))
-
-(def cas-isolate-node-test
-  (cas-register-test "isolate node"
-                     {:nemesis (nemesis/partition-random-node)}))
-
-(def cas-crash-subset-test
-  (cas-register-test "crash"
-                     {:nemesis crash-nemesis}))
-
-(def cas-clock-drift-test
-  (cas-register-test "clock drift"
-                     {:nemesis (nemesis/clock-scrambler 10000)}))
-
-

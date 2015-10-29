@@ -1,12 +1,13 @@
 (ns atomix-jepsen.util
-    (:require [jepsen [control :as c]
-               [util :as util]]))
+  (:require [jepsen [control :as c]
+             [util :as util]]
+            [clojure.set :as set]))
 
 (defn dir-exists
   [path]
   (= "1" (util/meh
-         (c/exec
-           (c/lit (str "test -d " path " && echo 1"))))))
+           (c/exec
+             (c/lit (str "test -d " path " && echo 1"))))))
 
 (defn try-until-success
   [thunk failure-thunk]
@@ -29,12 +30,18 @@
            frequencies
            sort)
       ; => ([1 3824] [2 2340] [3 1595] [4 1266] [5 975])"
-  [xs]
-  (-> xs
-      count
-      inc
-      Math/log
-      rand
-      Math/exp
-      long
-      (take (shuffle xs))))
+  [bootstrap decomission]
+  (fn [xs]
+    (-> xs
+        count
+        inc
+        Math/log
+        rand
+        Math/exp
+        long
+        (take (shuffle xs))
+        set
+        (set/difference @bootstrap)
+        set
+        (set/difference @decomission)
+        shuffle)))

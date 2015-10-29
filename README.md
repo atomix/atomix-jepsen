@@ -40,6 +40,12 @@ To run the atomix-jepsen tests, from your `atomix-jepsen` directory, run:
 lein test
 ```
 
+To run a single test (ex):
+
+```
+lein test :only atomix-jepsen.cas-test/cas-test-bootstrap
+```
+
 ## Notes
 
 #### Shared Repository
