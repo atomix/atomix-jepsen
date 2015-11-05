@@ -93,29 +93,31 @@
                                        std-gen)})
          opts))
 
-(def cas-bootstrap-test
-  (cas-register-test "bridge"
-                     {:bootstrap #{:n4 :n5}
-                      :nemesis (bootstrap-nemesis)}))
-
 (def cas-bridge-test
   (cas-register-test "bridge"
                      {:nemesis (nemesis/partitioner (comp nemesis/bridge shuffle))}))
-
-(def cas-halves-test
-  (cas-register-test "halves"
-                     {:nemesis (nemesis/partition-random-halves)}))
 
 (def cas-isolate-node-test
   (cas-register-test "isolate node"
                      {:nemesis (nemesis/partition-random-node)}))
 
+(def cas-halves-test
+  (cas-register-test "halves"
+                     {:nemesis (nemesis/partition-random-halves)}))
+
 (def cas-crash-subset-test
   (cas-register-test "crash"
                      {:nemesis (crash-nemesis)}))
+
+;(def cas-compact-test
+;  (cas-register-test "compact"
+;                     {:nemesis (compact-nemesis)}))
 
 (def cas-clock-drift-test
   (cas-register-test "clock drift"
                      {:nemesis (nemesis/clock-scrambler 10000)}))
 
-
+(def cas-bootstrap-test
+  (cas-register-test "bootstrap"
+                     {:bootstrap #{:n4 :n5}
+                      :nemesis (bootstrap-nemesis)}))

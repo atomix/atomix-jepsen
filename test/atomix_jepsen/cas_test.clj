@@ -19,20 +19,25 @@
       (print-stack-trace e)
       (throw e))))
 
-(deftest cas-test-bootstrap
-  (run-test! cas-bootstrap-test))
-
-(deftest cas-test-bridge
+; Steady state cluster tests
+(deftest bridge
   (run-test! cas-bridge-test))
 
-(deftest cas-test-isolate-node
+(deftest isolate-node
   (run-test! cas-isolate-node-test))
 
-(deftest cas-test-halves
+(deftest halves
   (run-test! cas-halves-test))
 
-(deftest cas-test-crash-subset
+(deftest crash-subset
   (run-test! cas-crash-subset-test))
 
-;(deftest cas-test-clock-drift
-;  (run-test! cas-clock-drift-test))
+;(deftest compact
+;  (run-test! cas-compact-test))
+
+(deftest clock-drift
+  (run-test! cas-clock-drift-test))
+
+; Bootstrapping cluster tests
+(deftest bootstrap
+  (run-test! cas-bootstrap-test))

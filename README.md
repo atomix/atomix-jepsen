@@ -43,7 +43,7 @@ lein test
 To run a single test (ex):
 
 ```
-lein test :only atomix-jepsen.cas-test/cas-test-bootstrap
+lein test :only atomix-jepsen.cas-test/bridge
 ```
 
 ## Notes
