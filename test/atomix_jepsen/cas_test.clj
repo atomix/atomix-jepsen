@@ -44,6 +44,9 @@
 
 ; Bootstrapping cluster tests
 
+(deftest bootstrap
+  (run-test! cas-bootstrap-test))
+
 (deftest bridge-bootstrap
   (run-test! cas-bridge-bootstrap-test))
 

@@ -125,6 +125,11 @@
 
 ; Bootstrap tests
 
+(def cas-bootstrap-test
+  (cas-register-test "bootstrap"
+                     {:bootstrap #{:n4 :n5}
+                      :nemesis   (bootstrap-nemesis)}))
+
 (def cas-bridge-bootstrap-test
   (cas-register-test "bridge bootstrap"
                      {:bootstrap #{:n4 :n5}
