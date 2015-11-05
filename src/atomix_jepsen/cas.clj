@@ -93,6 +93,8 @@
                                        std-gen)})
          opts))
 
+; Baseline tests
+
 (def cas-bridge-test
   (cas-register-test "bridge"
                      {:nemesis (nemesis/partitioner (comp nemesis/bridge shuffle))}))
@@ -101,9 +103,13 @@
   (cas-register-test "isolate node"
                      {:nemesis (nemesis/partition-random-node)}))
 
-(def cas-halves-test
-  (cas-register-test "halves"
+(def cas-random-halves-test
+  (cas-register-test "random halves"
                      {:nemesis (nemesis/partition-random-halves)}))
+
+(def cas-majorities-ring-test
+  (cas-register-test "majorities ring"
+                     {:nemesis (nemesis/partition-majorities-ring)}))
 
 (def cas-crash-subset-test
   (cas-register-test "crash"
@@ -117,7 +123,38 @@
   (cas-register-test "clock drift"
                      {:nemesis (nemesis/clock-scrambler 10000)}))
 
+; Bootstrap tests
+
+;(def bridge-test-bootstrap
+;  (cas-register-test "bridge bootstrap"
+;                     {:bootstrap #{:n4 :n5}
+;                      :nemesis   (bootstrap-nemesis (comp nemesis/partitioner (comp nemesis/bridge shuffle)))}))
+;
+;(def halves-test-bootstrap
+;  (cas-register-test "halves bootstrap"
+;                     {:bootstrap  (atom #{:n4 :n5})
+;                      :conductors {:nemesis      (nemesis/partition-random-halves)
+;                                   :bootstrapper (conductors/bootstrapper)}}))
+;
+;(def isolate-node-test-bootstrap
+;  (cas-register-test "isolate node bootstrap"
+;                     {:bootstrap  (atom #{:n4 :n5})
+;                      :conductors {:nemesis      (nemesis/partition-random-node)
+;                                   :bootstrapper (conductors/bootstrapper)}}))
+;
+;(def crash-subset-test-bootstrap
+;  (cas-register-test "crash bootstrap"
+;                     {:bootstrap  (atom #{:n4 :n5})
+;                      :conductors {:nemesis      (crash-nemesis)
+;                                   :bootstrapper (conductors/bootstrapper)}}))
+;
+;(def clock-drift-test-bootstrap
+;  (cas-register-test "clock drift bootstrap"
+;                     {:bootstrap  (atom #{:n4 :n5})
+;                      :conductors {:nemesis      (nemesis/clock-scrambler 10000)
+;                                   :bootstrapper (conductors/bootstrapper)}}))
+
 (def cas-bootstrap-test
   (cas-register-test "bootstrap"
                      {:bootstrap #{:n4 :n5}
-                      :nemesis (bootstrap-nemesis)}))
+                      :nemesis   (bootstrap-nemesis)}))

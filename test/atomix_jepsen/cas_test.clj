@@ -26,8 +26,11 @@
 (deftest isolate-node
   (run-test! cas-isolate-node-test))
 
-(deftest halves
-  (run-test! cas-halves-test))
+(deftest random-halves
+  (run-test! cas-random-halves-test))
+
+(deftest majorities-ring
+  (run-test! cas-majorities-ring-test))
 
 (deftest crash-subset
   (run-test! cas-crash-subset-test))
