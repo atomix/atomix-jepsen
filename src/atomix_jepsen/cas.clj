@@ -125,36 +125,38 @@
 
 ; Bootstrap tests
 
-;(def bridge-test-bootstrap
-;  (cas-register-test "bridge bootstrap"
-;                     {:bootstrap #{:n4 :n5}
-;                      :nemesis   (bootstrap-nemesis (comp nemesis/partitioner (comp nemesis/bridge shuffle)))}))
-;
-;(def halves-test-bootstrap
-;  (cas-register-test "halves bootstrap"
-;                     {:bootstrap  (atom #{:n4 :n5})
-;                      :conductors {:nemesis      (nemesis/partition-random-halves)
-;                                   :bootstrapper (conductors/bootstrapper)}}))
-;
-;(def isolate-node-test-bootstrap
-;  (cas-register-test "isolate node bootstrap"
-;                     {:bootstrap  (atom #{:n4 :n5})
-;                      :conductors {:nemesis      (nemesis/partition-random-node)
-;                                   :bootstrapper (conductors/bootstrapper)}}))
-;
-;(def crash-subset-test-bootstrap
-;  (cas-register-test "crash bootstrap"
-;                     {:bootstrap  (atom #{:n4 :n5})
-;                      :conductors {:nemesis      (crash-nemesis)
-;                                   :bootstrapper (conductors/bootstrapper)}}))
-;
-;(def clock-drift-test-bootstrap
-;  (cas-register-test "clock drift bootstrap"
-;                     {:bootstrap  (atom #{:n4 :n5})
-;                      :conductors {:nemesis      (nemesis/clock-scrambler 10000)
-;                                   :bootstrapper (conductors/bootstrapper)}}))
-
-(def cas-bootstrap-test
-  (cas-register-test "bootstrap"
+(def cas-bridge-bootstrap-test
+  (cas-register-test "bridge bootstrap"
                      {:bootstrap #{:n4 :n5}
-                      :nemesis   (bootstrap-nemesis)}))
+                      :nemesis   (combine-nemesis (bootstrap-nemesis)
+                                                  (comp nemesis/partitioner (comp nemesis/bridge shuffle)))}))
+
+(def cas-random-halves-bootstrap-test
+  (cas-register-test "random halves bootstrap"
+                     {:bootstrap #{:n4 :n5}
+                      :nemesis   (combine-nemesis (bootstrap-nemesis)
+                                                  (nemesis/partition-random-halves))}))
+
+(def cas-isolate-node-bootstrap-test
+  (cas-register-test "isolate node bootstrap"
+                     {:bootstrap #{:n4 :n5}
+                      :nemesis   (combine-nemesis (bootstrap-nemesis)
+                                                  (nemesis/partition-random-node))}))
+
+(def cas-majorities-ring-bootstrap-test
+  (cas-register-test "majorities ring bootstrap"
+                     {:bootstrap #{:n4 :n5}
+                      :nemesis   (combine-nemesis (bootstrap-nemesis)
+                                                  (nemesis/partition-majorities-ring))}))
+
+(def cas-crash-subset-bootstrap-test
+  (cas-register-test "crash bootstrap"
+                     {:bootstrap #{:n4 :n5}
+                      :nemesis   (combine-nemesis (bootstrap-nemesis)
+                                                  (crash-nemesis))}))
+
+(def cas-clock-drift-bootstrap-test
+  (cas-register-test "clock drift bootstrap"
+                     {:bootstrap #{:n4 :n5}
+                      :nemesis   (combine-nemesis (bootstrap-nemesis)
+                                                  (nemesis/clock-scrambler 10000))}))

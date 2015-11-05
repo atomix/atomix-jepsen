@@ -158,6 +158,22 @@
 
     (teardown! [this test])))
 
+(defn combine-nemesis
+  "Combines a pair of nemesis(es?), executing both and returning results from nemesis2"
+  [nemesis1 nemesis2]
+  (reify client/Client
+    (setup! [this test node]
+      (client/setup! nemesis1 test node)
+      (client/setup! nemesis2 test node))
+
+    (invoke! [this test op]
+      (client/invoke! nemesis1 test op)
+      (client/invoke! nemesis2 test op))
+
+    (teardown! [this test]
+      (client/teardown! nemesis1 test)
+      (client/teardown! nemesis2 test))))
+
 ; Tests
 
 (defn atomix-test
