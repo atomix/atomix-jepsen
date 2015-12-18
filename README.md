@@ -43,7 +43,7 @@ lein test
 To run a single test (ex):
 
 ```
-lein test :only atomix-jepsen.cas-test/bridge
+lein test :only atomix-jepsen.dvalue-test/bridge
 ```
 
 ## Notes
@@ -64,9 +64,13 @@ To use Atomix from your local `.m2` repo instead of pulling and building it from
 DEV=true lein test
 ```
 
+#### Orphaned Processes
+
+If you break out of a running test, the java processes that maintain SSH sessions to your jepsen nodes may be left running, as well as the atomix server processes on those nodes. To kill these, run `pkill java` from your jepsen container.
+
 ## License
 
-Copyright © 2015 Jonathan Halterman
+Copyright © 2015-2016 Jonathan Halterman and contributors
 
 Distributed under the Eclipse Public License version 1.0
 

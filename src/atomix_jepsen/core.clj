@@ -11,12 +11,13 @@
              [generator :as gen]
              [nemesis :as nemesis]
              [tests :as tests]]
-            [jepsen.os.debian :as debian]))
+            [jepsen.os.debian :as debian]
+            [clojure.set :as set]))
 
 ; Vars
 
-(def bootstrap (atom #{}))
-(def decommission (atom #{}))
+(def active-nodes (atom #{}))
+(def inactive-nodes (atom #{}))
 
 ; Test lifecycle
 
@@ -54,8 +55,7 @@
 (defn start!
   "Starts atomix."
   [node test]
-  (let [nodes (set (:nodes test))
-        other-nodes (clojure.set/difference nodes (set [node]))
+  (let [other-nodes (set/difference @active-nodes (set [node]))
         local-node-arg "5555"
         other-node-args (doall (map #(str (name %) ":5555")
                                     other-nodes))
@@ -65,13 +65,13 @@
     (c/su
       (meh (c/exec :rm :-rf "/root/logs/"))
       (c/cd "/root"
-            (c/exec :java :-jar jarfile local-node-arg other-node-args
+            (c/exec :java :-jar jarfile "/root/logs/" local-node-arg other-node-args
                     (c/lit "2>> /dev/null >> /var/log/atomix.log & echo $!"))))))
 
 (defn guarded-start!
-  "Guarded start that only starts non bootstrap and decommission nodes."
+  "Guarded start that only starts active nodes."
   [node test]
-  (when-not (or (node @bootstrap) (node @decommission))
+  (when (node @active-nodes)
     (start! node test)))
 
 (defn stop!
@@ -126,22 +126,48 @@
   (gen/phases
     (->> gen
          (nemesis-gen 8 8)
-         (gen/time-limit 60))
+         (gen/time-limit 20))
     (recover)
     (read-once)))
 
 ; Nemesis
 
-(defn crash-nemesis
-  "A nemesis that crashes a random subset of nodes."
-  []
-  (nemesis/node-start-stopper
-    (cutil/mostly-small-nonempty-subset bootstrap decommission)
-    (fn start [test node] (stop! node) [:killed node])
-    (fn stop [test node] (start! node test) [:restarted node])))
+;(defn crash-nemesis
+;  "A nemesis that crashes a random subset of nodes."
+;  []
+;  (test-aware-node-start-stopper
+;    safe-mostly-small-nonempty-subset
+;    (fn start [test node] (stop! node) [:killed node])
+;    (fn stop [test node] (start! node test) [:restarted node])))
 
-(defn bootstrap-nemesis
-  "Bootstraps a new node into a running atomix cluster"
+(defn crash-nemesis
+  "A nemesis that crashes a random subset of 1-3 nodes."
+  []
+  (let [nodes (atom nil)]
+    (reify client/Client
+      (setup! [this test _] this)
+
+      (invoke! [this test op]
+        (locking nodes
+          (assoc op :type :info, :value
+                    (case (:f op)
+                      :start (let [max-nodes-to-kill (- (count nodes) 2)
+                                   target-nodes (take (inc (rand-int max-nodes-to-kill))
+                                                      (shuffle nodes))]
+                               (reset! nodes target-nodes)
+                               (doseq [node target-nodes]
+                                 (stop! node))
+                               :no-target)
+                      :stop (do
+                              (reset! nodes nil)
+                              (doseq [node @nodes]
+                                (start! node test))
+                              :not-started)))))
+
+      (teardown! [this test]))))
+
+(defn config-change-nemesis
+  "Changes cluster config by adding or removing nodes."
   []
   (reify client/Client
     (setup! [this test _] this)
@@ -149,11 +175,24 @@
     (invoke! [this test op]
       (assoc op :type :info, :value
                 (case (:f op)
-                  :start (if-let [node (first @bootstrap)]
-                           (do (swap! bootstrap rest)
-                               (info "bootstrapping " node)
-                               (c/on node (start! node test))))
-                  :no-target
+                  :start (let [directive (case (count @inactive-nodes)
+                                           0 :leave
+                                           1 (if (= 1 (rand-int 2))
+                                               :leave
+                                               :join)
+                                           2 :join)]
+                           (case directive
+                             :leave (let [node (first (shuffle @active-nodes))]
+                                      (swap! inactive-nodes conj node)
+                                      (swap! active-nodes disj node)
+                                      (info node " leaving")
+                                      (c/on node (stop! node)))
+                             :join (let [node (first (shuffle @inactive-nodes))]
+                                     (swap! inactive-nodes disj node)
+                                     (swap! active-nodes conj node)
+                                     (info node " joining")
+                                     (c/on node (start! node test))))
+                           :no-target)
                   :stop :no-target)))
 
     (teardown! [this test])))
@@ -180,9 +219,9 @@
   "Returns a map of atomix test settings"
   [name opts]
   (merge tests/noop-test
-         {:name         (str "atomix " name)
-          :os           debian/os
-          :db           (db)
-          :bootstrap    #{}
-          :decommission #{}}
+         {:name           (str "atomix " name)
+          :os             debian/os
+          :db             (db)
+          :inactive-nodes #{}
+          :active-nodes   #{}}
          opts))

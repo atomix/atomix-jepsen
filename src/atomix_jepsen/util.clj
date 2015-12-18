@@ -10,38 +10,14 @@
              (c/lit (str "test -d " path " && echo 1"))))))
 
 (defn try-until-success
-  [thunk failure-thunk]
+  "Accepts a try-fn to try a failure-fn to call upon failure, supplying the failure/exception. The try-fn is retried
+  until no failure is thrown."
+  [try-fn failure-fn]
   (loop []
     (if-let [result (try
-                      (thunk)
+                      (try-fn)
                       (catch Exception e
-                        (failure-thunk e)
+                        (failure-fn e)
                         nil))]
       result
       (recur))))
-
-(defn mostly-small-nonempty-subset
-  "Returns a subset of the given collection, with a logarithmically decreasing
-  probability of selecting more elements. Always selects at least one element.
-      (->> #(mostly-small-nonempty-subset [1 2 3 4 5])
-           repeatedly
-           (map count)
-           (take 10000)
-           frequencies
-           sort)
-      ; => ([1 3824] [2 2340] [3 1595] [4 1266] [5 975])"
-  [bootstrap decomission]
-  (fn [xs]
-    (-> xs
-        count
-        inc
-        Math/log
-        rand
-        Math/exp
-        long
-        (take (shuffle xs))
-        set
-        (set/difference @bootstrap)
-        set
-        (set/difference @decomission)
-        shuffle)))
