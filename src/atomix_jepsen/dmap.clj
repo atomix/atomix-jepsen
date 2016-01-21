@@ -37,7 +37,7 @@
                                     (trinity/open!))
                   _ (debug "Client connected!")
                   test-name (:name test)
-                  dmap (dmap/create atomix-client test-name)]
+                  dmap (trinity/get-map atomix-client test-name)]
               (debug "Created atomix resource" test-name)
               (assoc this :client atomix-client
                           :dmap dmap)))

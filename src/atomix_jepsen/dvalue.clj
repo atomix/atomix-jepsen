@@ -38,7 +38,7 @@
                                     (trinity/open!))
                   _ (debug "Client connected!")
                   test-name (:name test)
-                  register (dvalue/create atomix-client test-name)]
+                  register (trinity/get-value atomix-client test-name)]
               (debug "Created atomix resource" test-name)
               (assoc this :client atomix-client
                           :register register)))

@@ -56,9 +56,16 @@ To cut down on test setup time and disk usage, you can share your local `~/.m2` 
 -v $HOME/.m2:/root/.m2
 ```
 
-#### Skip Build
+#### Development Mode
 
-To use Atomix from your local `.m2` repo instead of pulling and building it from Github, run as:
+To run your local atomix-jepsen source on your Jepsen nodes instead of pulling and building it from Github, build and install the atomix-jepsen replica to your local `.m2` repo:
+
+```
+lein uberjar
+lein localrepo install target/atomix-replica.jar io.atomix.atomix-jepsen/replica 0.1.0
+```
+
+Then declare `DEV=true` when running atomix-jepsen tests:
 
 ```
 DEV=true lein test

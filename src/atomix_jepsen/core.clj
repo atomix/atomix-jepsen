@@ -36,36 +36,35 @@
     (debian/update!)
     (debian/install ["oracle-java8-installer" "oracle-java8-set-default" "git" "maven"]))
 
-  ; Install atomix
+  ; Install atomix-jepsen replica
   (when (not (get (System/getenv) "DEV"))
     (c/su
-      (info node "fetching atomix")
-      (if-not (cutil/dir-exists "/opt/atomix")
+      (info node "fetching atomix-jepsen")
+      (if-not (cutil/dir-exists "/opt/atomix-jepsen")
         (c/cd "/opt"
-              (c/exec :git :clone "https://github.com/atomix/atomix.git"))
-        (c/cd "/opt/atomix"
+              (c/exec :git :clone "https://github.com/atomix/atomix-jepsen.git"))
+        (c/cd "/opt/atomix-jepsen"
               (c/exec :git :pull)))
-      (info node "building atomix")
-      (c/cd "/opt/atomix"
+      (info node "building atomix-jepsen replica")
+      (c/cd "/opt/atomix-jepsen"
             (c/exec :git :checkout)
-            (c/exec :mvn :clean :install "-DskipTests=true"))
-      (c/cd "/opt/atomix/examples"
-            (c/exec :mvn :clean :install)))))
+            (c/exec :lein :clean)
+            (c/exec :lein :uberjar)
+            (c/exec :lein :localrepo :install "target/atomix-replica.jar" "io.atomix.atomix-jepsen/replica" "0.1.0")))))
 
 (defn start!
-  "Starts atomix."
+  "Starts atomix replica."
   [node test]
-  (let [other-nodes (set/difference @active-nodes (set [node]))
-        local-node-arg "5555"
-        other-node-args (doall (map #(str (name %) ":5555")
-                                    other-nodes))
-        jarfile "/root/.m2/repository/io/atomix/atomix-standalone-server-example/0.1.0-SNAPSHOT/atomix-standalone-server-example-0.1.0-SNAPSHOT-shaded.jar"]
-    (info node "starting atomix")
+  (let [local-port "5555"
+        members (doall (map #(str (name %) ":5555")
+                                 @active-nodes))
+        jarfile "/root/.m2/repository/io/atomix/atomix-jepsen/replica/0.1.0/replica-0.1.0.jar"]
+    (info node "starting atomix replica")
     (meh (c/exec :truncate :--size 0 "/var/log/atomix.log"))
     (c/su
       (meh (c/exec :rm :-rf "/root/logs/"))
       (c/cd "/root"
-            (c/exec :java :-jar jarfile "/root/logs/" local-node-arg other-node-args
+            (c/exec :java :-jar jarfile "/root/logs/" local-port members
                     (c/lit "2>> /dev/null >> /var/log/atomix.log & echo $!"))))))
 
 (defn guarded-start!
