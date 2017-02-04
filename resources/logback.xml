@@ -8,7 +8,7 @@
 
   <logger name="org.jboss.logging" level="INFO" />
   <logger name="io.atomix" level="INFO" />
-  <logger name="io.atomix.catalyst.transport.NettyClient" level="WARN" />
+  <logger name="io.atomix.catalyst.transport.netty.NettyClient" level="WARN" />
   <logger name="clj-ssh.ssh" level="INFO" />
   <logger name="io.netty" level="INFO"/>
 

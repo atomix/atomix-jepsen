@@ -2,8 +2,8 @@ FROM kojiromike/dind
 MAINTAINER jhalterman@gmail.com
 
 ENV ATOMIX_GIT_URL http://github.com/atomix/atomix
-ENV TRINITY_GIT_URL http://github.com/atomix/trinity
-ENV ATOMIX_JEPSEN_GIT_URL http://github.com/atomix/atomix-jepsen
+ENV TRINITY_GIT_URL http://github.com/jhall11/trinity
+ENV ATOMIX_JEPSEN_GIT_URL http://github.com/jhall11/atomix-jepsen
 ENV JEPSEN_GIT_URL http://github.com/aphyr/jepsen
 ENV LEIN_ROOT true
 
@@ -15,6 +15,9 @@ RUN apt-get -y -q update
 RUN echo "oracle-java8-installer shared/accepted-oracle-license-v1-1 select true" | sudo debconf-set-selections
 RUN apt-get install -qqy oracle-java8-installer oracle-java8-set-default libjna-java git gnuplot wget maven
 RUN rm -rf /var/lib/apt/lists/* && rm -rf /var/cache/oracle-jdk8-installer
+
+# Update Docker
+RUN apt-get update && apt-get -y -q upgrade lxc-docker
 
 # Install Leiningen
 RUN cd / && wget https://raw.githubusercontent.com/technomancy/leiningen/stable/bin/lein && mv /lein /usr/bin 

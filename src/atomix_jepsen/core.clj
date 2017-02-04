@@ -50,7 +50,7 @@
             (c/exec :git :checkout)
             (c/exec :lein :clean)
             (c/exec :lein :uberjar)
-            (c/exec :lein :localrepo :install "target/atomix-replica.jar" "io.atomix.atomix-jepsen/replica" "0.1.0")))))
+            (c/exec :lein :localrepo :install "target/atomix-replica.jar" "io.atomix.atomix-jepsen/replica" "1.0.1-SNAPSHOT")))))
 
 (defn start!
   "Starts atomix replica."
@@ -58,7 +58,7 @@
   (let [local-port "5555"
         members (doall (map #(str (name %) ":5555")
                                  @active-nodes))
-        jarfile "/root/.m2/repository/io/atomix/atomix-jepsen/replica/0.1.0/replica-0.1.0.jar"]
+        jarfile "/root/.m2/repository/io/atomix/atomix-jepsen/replica/1.0.1-SNAPSHOT/replica-1.0.1-SNAPSHOT.jar"]
     (info node "starting atomix replica")
     (meh (c/exec :truncate :--size 0 "/var/log/atomix.log"))
     (c/su

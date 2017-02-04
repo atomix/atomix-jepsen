@@ -35,7 +35,7 @@
           #(do
             (info "Creating client connection to" node-set)
             (let [atomix-client (-> (trinity/client node-set)
-                                    (trinity/open!))
+                                    (trinity/connect!))
                   _ (debug "Client connected!")
                   test-name (:name test)
                   register (trinity/get-value atomix-client test-name)]
