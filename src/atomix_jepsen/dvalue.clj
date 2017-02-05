@@ -31,20 +31,23 @@
       (let [node-set (map #(hash-map :host (name %)
                                      :port 5555)
                           (:nodes test))]
-        (cutil/try-until-success
-          #(do
-            (info "Creating client connection to" node-set)
-            (let [atomix-client (-> (trinity/client node-set)
-                                    (trinity/connect!))
-                  _ (debug "Client connected!")
-                  test-name (:name test)
-                  register (trinity/get-value atomix-client test-name)]
-              (debug "Created atomix resource" test-name)
-              (assoc this :client atomix-client
-                          :register register)))
-          #(do
-            (debug "Connection attempt failed. Retrying..." %)
-            (Thread/sleep 2000))))))
+        (do
+          (info "Bootstrapping cluster with" node-set)
+          (trinity/boostrap node-set)
+          (cutil/try-until-success
+            #(do
+              (info "Creating client connection to" node-set)
+              (let [atomix-client (-> (trinity/client node-set)
+                                      (trinity/join))
+                    _ (debug "Client connected!")
+                    test-name (:name test)
+                    register (trinity/get-value atomix-client test-name)]
+                (debug "Created atomix resource" test-name)
+                (assoc this :client atomix-client
+                            :register register)))
+            #(do
+              (debug "Connection attempt failed. Retrying..." %)
+              (Thread/sleep 2000)))))))
 
   (invoke! [this test op]
     (try
