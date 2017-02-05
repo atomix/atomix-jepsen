@@ -12,8 +12,11 @@ EOF
 # Update docker
 apt-get update && apt-get -y -q upgrade lxc-docker
 
+# Pull latest docker image
+docker pull jondoo1220/atomix_node:latest
+
 # Start container
-docker run -d --name n1 -e ROOT_PASS="root" -e AUTHORIZED_KEYS="`cat ~/.ssh/id_rsa.pub`" atomix_node:latest
+docker run -d --name n1 -e ROOT_PASS="root" -e AUTHORIZED_KEYS="`cat ~/.ssh/id_rsa.pub`" jondoo1220/atomix_node:latest
 N1_IP=$(docker inspect --format '{{ .NetworkSettings.IPAddress }}' n1)
 
 sleep 10
