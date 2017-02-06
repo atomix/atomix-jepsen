@@ -33,7 +33,7 @@
                           (:nodes test))]
         (do
           (info "Bootstrapping cluster with" node-set)
-          (trinity/boostrap node-set)
+          (trinity/bootstrap node-set)
           (cutil/try-until-success
             #(do
               (info "Creating client connection to" node-set)
