@@ -1,10 +1,9 @@
 (ns atomix-jepsen.replica
   "An Atomix replica to run on Jepsen nodes"
   (:gen-class)
-  (:require [trinity
-             [core :as trinity]]
+  (:require [trinity.core :as trinity]
             [clojure.string :as str])
-  (:import (io.atomix.catalyst.transport NettyTransport)
+  (:import (io.atomix.catalyst.transport.netty NettyTransport)
            (io.atomix.copycat.server.storage Storage)
            (io.atomix AtomixReplica)))
 
@@ -22,6 +21,6 @@
         options {:storage storage :transport transport}
         ^AtomixReplica replica (trinity/replica (Integer/parseInt local-port) hosts options)]
 
-    (trinity/open! replica)
+    (trinity/bootstrap-async! replica)
     (while (.isOpen replica)
       (Thread/sleep 1000))))

@@ -4,11 +4,13 @@
             [atomix-jepsen.core :as core]
             [jepsen.core :as jepsen]
             [clojure.set :as set])
-  (:import (java.util.concurrent TimeUnit Executors)))
+  (:import (java.util.concurrent TimeUnit Executors)
+           (java.util Arrays)
+           (java.lang.management ManagementFactory)))
 
 (defn dump-threads []
-  (println (java.util.Arrays/toString (.dumpAllThreads
-                                        (java.lang.management.ManagementFactory/getThreadMXBean) false false))))
+  (println (Arrays/toString (.dumpAllThreads
+                              (ManagementFactory/getThreadMXBean) false false))))
 
 ;(.scheduleAtFixedRate (Executors/newSingleThreadScheduledExecutor) dump-threads 0 5 TimeUnit/SECONDS)
 
